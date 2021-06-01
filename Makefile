@@ -17,13 +17,16 @@ SONAME   = $(LINKNAME).$(MAJOR)
 LIBNAME  = $(LINKNAME).$(VERSION)
 LIBS     = $(LIBNAME) $(ARCNAME)
 
-CC      = cc
+CC      = gcc
 #CFLAGS = -std=c11 -pedantic -g3 -Og -Wall -Wextra
 CFLAGS  = -std=c11 -pedantic -g3 -Wall -Wextra
 LOFLAGS = -fPIC
 SOFLAGS = -shared -Wl,-soname,$(SONAME)
-LDFLAGS = -L/usr/local/lib
+LDFLAGS = -L/sandbox/quantastor/external/openssl/linux/gcc48/openssl-1.1.1k/lib \
+		-Wl,-rpath=/opt/osnexus/common/lib \
+		-L/opt/osnexus/common/lib
 LDLIBS  = -lssl -lcrypto
+INCFLAGS = -I/sandbox/quantastor/external/openssl/linux/gcc48/openssl-1.1.1k/include
 AR      = ar csrv
 DESTDIR = 
 PREFIX  = /usr/local
@@ -87,7 +90,7 @@ demo_create.o: demo_create.c kmip_memset.h kmip.h
 demo_destroy.o: demo_destroy.c kmip_memset.h kmip.h
 tests.o: tests.c kmip_memset.h kmip.h
 $(LIBNAME): $(LOFILES)
-	$(CC) $(CFLAGS) $(SOFLAGS) -o $@ $(LOFILES)
+	$(CC) $(CFLAGS) $(SOFLAGS) $(LDFLAGS) -o $@ $(LOFILES) $(LDLIBS)
 $(ARCNAME): $(OFILES)
 	$(AR) $@ $(OFILES)
 
@@ -110,8 +113,8 @@ cleanest:
 
 .SUFFIXES: .c .o .lo .so
 .c.o:
-	$(CC) $(CFLAGS) -c $<
+	$(CC) $(INCFLAGS) $(CFLAGS) -c $<
 .c.lo:
-	$(CC) $(CFLAGS) $(LOFLAGS) -c $< -o $@
+	$(CC) $(INCFLAGS) $(CFLAGS) $(LDFLAGS) $(LOFLAGS) -c $< -o $@ $(LDLIBS)
 #.lo.so:
 #	$(CC) $(CFLAGS) $(SOFLAGS) -o $@ $?

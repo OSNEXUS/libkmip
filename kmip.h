@@ -417,7 +417,8 @@ enum operation
     /* KMIP 1.0 */
     KMIP_OP_CREATE  = 0x01,
     KMIP_OP_GET     = 0x0A,
-    KMIP_OP_DESTROY = 0x14
+    KMIP_OP_DESTROY = 0x14,
+    KMIP_OP_REGISTER = 0x03
 };
 
 enum padding_method
@@ -971,6 +972,21 @@ typedef struct destroy_response_payload
 {
     TextString *unique_identifier;
 } DestroyResponsePayload;
+
+typedef struct register_request_payload
+{
+    /* KMIP 1.0 */
+    enum object_type object_type;
+    TemplateAttribute *template_attribute;
+    PrivateKey *privateKey;
+} RegisterRequestPayload;
+
+typedef struct register_response_payload
+{
+    /* KMIP 1.0 */
+    TextString *unique_identifier;
+    TemplateAttribute *template_attribute;
+} RegisterResponsePayload;
 
 /* Authentication Structures */
 

@@ -1350,6 +1350,7 @@ int kmip_bio_send_request_encoding(KMIP *ctx, BIO *bio,
     {
         return(KMIP_IO_FAILURE);
     }
+    fprintf(stdout,"Message sent via BIO_write()...\n");
     
     /* Read the response message. Dynamically resize the receiving buffer */
     /* to align with the message size advertised by the message encoding. */
@@ -1364,6 +1365,7 @@ int kmip_bio_send_request_encoding(KMIP *ctx, BIO *bio,
     {
         return(KMIP_MEMORY_ALLOC_FAILED);
     }
+    fprintf(stdout,"Inital buffer allocated...\n");
     
     int recv = BIO_read(bio, encoding, buffer_total_size);
     if((size_t)recv != buffer_total_size)
@@ -1372,6 +1374,7 @@ int kmip_bio_send_request_encoding(KMIP *ctx, BIO *bio,
         encoding = NULL;
         return(KMIP_IO_FAILURE);
     }
+    fprintf(stdout,"Recived message via BIO_read()...\n");
     
     kmip_set_buffer(ctx, encoding, buffer_total_size);
     ctx->index += 4;

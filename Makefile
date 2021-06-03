@@ -22,7 +22,8 @@ CC      = gcc
 CFLAGS  = -std=c11 -pedantic -g3 -Wall -Wextra
 LOFLAGS = -fPIC
 SOFLAGS = -shared -Wl,-soname,$(SONAME)
-LDFLAGS = -L/sandbox/quantastor/external/openssl/linux/gcc48/openssl-1.1.1k/lib \
+LDFLAGS = -Wl,-rpath=/sandbox/quantastor/external/openssl/linux/gcc48/openssl-1.1.1k/lib \
+		-L/sandbox/quantastor/external/openssl/linux/gcc48/openssl-1.1.1k/lib \
 		-Wl,-rpath=/opt/osnexus/common/lib \
 		-L/opt/osnexus/common/lib
 LDLIBS  = -lssl -lcrypto

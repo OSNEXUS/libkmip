@@ -1961,6 +1961,10 @@ kmip_print_operation_enum(FILE *f, enum operation value)
         case KMIP_OP_DESTROY:
         fprintf(f, "Destroy");
         break;
+
+        case KMIP_OP_REGISTER:
+        fprintf(f, "Register");
+        break;
         
         default:
         fprintf(f, "Unknown");
@@ -4266,6 +4270,33 @@ kmip_print_create_response_payload(FILE *f, int indent, CreateResponsePayload *v
 }
 
 void
+kmip_print_register_request_payload(FILE *f, int indent, RegisterRequestPayload *value)
+{
+    fprintf(f, "%*sRegister Request Payload @ %p\n", indent, "", (void *)value);
+    
+    if(value != NULL)
+    {
+        fprintf(f, "%*sObject Type: ", indent + 2, "");
+        kmip_print_object_type_enum(f, value->object_type);
+        fprintf(f, "\n");
+        kmip_print_template_attribute(f, indent + 2, value->template_attribute);
+        kmip_print_key_block(f,indent + 2,value->privateKey->key_block);
+    }
+}
+
+void
+kmip_print_register_response_payload(FILE *f, int indent, RegisterResponsePayload *value)
+{
+    fprintf(f, "%*sRegister Response Payload @ %p\n", indent, "", (void *)value);
+    
+    if(value != NULL)
+    {        
+        kmip_print_text_string(f, indent + 2, "Unique Identifier", value->unique_identifier);
+        kmip_print_template_attribute(f, indent + 2, value->template_attribute);
+    }
+}
+
+void
 kmip_print_get_request_payload(FILE *f, int indent, GetRequestPayload *value)
 {
     fprintf(f, "%*sGet Request Payload @ %p\n", indent, "", (void *)value);
@@ -4346,6 +4377,10 @@ kmip_print_request_payload(FILE *f, int indent, enum operation type, void *value
         case KMIP_OP_DESTROY:
         kmip_print_destroy_request_payload(f, indent, value);
         break;
+
+        case KMIP_OP_REGISTER:
+        kmip_print_register_request_payload(f, indent, value);
+        break;
         
         default:
         fprintf(f, "%*sUnknown Payload @ %p\n", indent, "", value);
@@ -4368,6 +4403,10 @@ kmip_print_response_payload(FILE *f, int indent, enum operation type, void *valu
         
         case KMIP_OP_DESTROY:
         kmip_print_destroy_response_payload(f, indent, value);
+        break;
+
+        case KMIP_OP_REGISTER:
+        kmip_print_register_response_payload(f, indent, value);
         break;
         
         default:
@@ -8503,7 +8542,10 @@ kmip_encode_text_string(KMIP *ctx, enum tag t, const TextString *value)
 int
 kmip_encode_byte_string(KMIP *ctx, enum tag t, const ByteString *value)
 {
+    fprintf(stdout,"Entering kmip_encode_byte_string()...\n");
+    fprintf(stdout,"Buffer '%lu', byte-string '%s' - '%lu'\n",ctx->size,(char *)value->value,value->size);
     uint8 padding = CALCULATE_PADDING(value->size);
+    fprintf(stdout,"Checking if buffer is full with padding '%u'\n",padding);
     CHECK_BUFFER_FULL(ctx, 8 + value->size + padding);
     
     kmip_encode_int32_be(ctx, TAG_TYPE(t, KMIP_TYPE_BYTE_STRING));
@@ -9600,6 +9642,7 @@ kmip_encode_key_value(KMIP *ctx, enum key_format_type format, const KeyValue *va
 int
 kmip_encode_key_block(KMIP *ctx, const KeyBlock *value)
 {
+    fprintf(stdout,"Entering kmip_encode_key_block()...\n");
     int result = 0;
     result = kmip_encode_int32_be(ctx, TAG_TYPE(KMIP_TAG_KEY_BLOCK, KMIP_TYPE_STRUCTURE));
     CHECK_RESULT(ctx, result);
@@ -9609,11 +9652,13 @@ kmip_encode_key_block(KMIP *ctx, const KeyBlock *value)
     
     result = kmip_encode_enum(ctx, KMIP_TAG_KEY_FORMAT_TYPE, value->key_format_type);
     CHECK_RESULT(ctx, result);
+    //fprintf(stdout,"kmip_encode_enum() complete...\n");
     
     if(value->key_compression_type != 0)
     {
         result = kmip_encode_enum(ctx, KMIP_TAG_KEY_COMPRESSION_TYPE, value->key_compression_type);
         CHECK_RESULT(ctx, result);
+        //fprintf(stdout,"kmip_encode_enum() complete...\n");
     }
     
     if(value->key_wrapping_data != NULL)
@@ -9622,26 +9667,31 @@ kmip_encode_key_block(KMIP *ctx, const KeyBlock *value)
     }
     else
     {
+        fprintf(stdout,"[KeyBlock] value->key_wrapping_data is NULL\n");
         result = kmip_encode_key_value(ctx, value->key_format_type, (KeyValue*)value->key_value);
     }
     CHECK_RESULT(ctx, result);
+    fprintf(stdout,"kmip_encode_key_value() or kmip_encode_byte_string() complete...\n");
     
     if(value->cryptographic_algorithm != 0)
     {
         result = kmip_encode_enum(ctx, KMIP_TAG_CRYPTOGRAPHIC_ALGORITHM, value->cryptographic_algorithm);
         CHECK_RESULT(ctx, result);
+        fprintf(stdout,"kmip_encode_enum() complete...\n");
     }
     
     if(value->cryptographic_length != KMIP_UNSET)
     {
         result = kmip_encode_integer(ctx, KMIP_TAG_CRYPTOGRAPHIC_LENGTH, value->cryptographic_length);
         CHECK_RESULT(ctx, result);
+        fprintf(stdout,"kmip_encode_enum() complete...\n");
     }
     
     if(value->key_wrapping_data != NULL)
     {
         result = kmip_encode_key_wrapping_data(ctx, value->key_wrapping_data);
         CHECK_RESULT(ctx, result);
+        fprintf(stdout,"kmip_encode_enum() complete...\n");
     }
     
     uint8 *curr_index = ctx->index;
@@ -9649,6 +9699,7 @@ kmip_encode_key_block(KMIP *ctx, const KeyBlock *value)
     
     result = kmip_encode_length(ctx, curr_index - value_index);
     CHECK_RESULT(ctx, result);
+    fprintf(stdout,"kmip_encode_enum() complete...\n");
 
     ctx->index = curr_index;
     
@@ -9706,21 +9757,25 @@ kmip_encode_public_key(KMIP *ctx, const PublicKey *value)
 int
 kmip_encode_private_key(KMIP *ctx, const PrivateKey *value)
 {
+    fprintf(stdout,"entering kmip_encode_private_key()...\n");
     int result = 0;
     result = kmip_encode_int32_be(ctx, TAG_TYPE(KMIP_TAG_PRIVATE_KEY, KMIP_TYPE_STRUCTURE));
     CHECK_RESULT(ctx, result);
+    //fprintf(stdout,"kmip_encode_int32_be() complete...\n");
     
     uint8 *length_index = ctx->index;
     uint8 *value_index = ctx->index += 4;
     
     result = kmip_encode_key_block(ctx, value->key_block);
     CHECK_RESULT(ctx, result);
+    fprintf(stdout,"kmip_encode_key_block() complete...\n");
     
     uint8 *curr_index = ctx->index;
     ctx->index = length_index;
     
     result = kmip_encode_length(ctx, curr_index - value_index);
     CHECK_RESULT(ctx, result);
+    fprintf(stdout,"kmip_encode_length() complete...\n");
 
     ctx->index = curr_index;
     
@@ -10021,6 +10076,76 @@ kmip_encode_destroy_response_payload(KMIP *ctx, const DestroyResponsePayload *va
     
     result = kmip_encode_text_string(ctx, KMIP_TAG_UNIQUE_IDENTIFIER, value->unique_identifier);
     CHECK_RESULT(ctx, result);
+    
+    uint8 *curr_index = ctx->index;
+    ctx->index = length_index;
+    
+    result = kmip_encode_length(ctx, curr_index - value_index);
+    CHECK_RESULT(ctx, result);
+
+    ctx->index = curr_index;
+    
+    return(KMIP_OK);
+}
+
+int
+kmip_encode_register_request_payload(KMIP *ctx, const RegisterRequestPayload *value)
+{
+    fprintf(stdout,"entering kmip_encode_register_request_payload()...\n");
+    CHECK_ENCODE_ARGS(ctx, value);
+
+    int result = 0;
+    result = kmip_encode_int32_be(ctx, TAG_TYPE(KMIP_TAG_REQUEST_PAYLOAD, KMIP_TYPE_STRUCTURE));
+    CHECK_RESULT(ctx, result);
+    
+    uint8 *length_index = ctx->index;
+    uint8 *value_index = ctx->index += 4;
+    
+    result = kmip_encode_enum(ctx, KMIP_TAG_OBJECT_TYPE, value->object_type);
+    CHECK_RESULT(ctx, result);
+    //fprintf(stdout,"kmip_encode_enum() complete...\n");
+
+    result = kmip_encode_template_attribute(ctx, value->template_attribute);
+    CHECK_RESULT(ctx, result);
+    //fprintf(stdout,"kmip_encode_template_attribute() complete...\n");
+
+    result = kmip_encode_private_key(ctx, value->privateKey);
+    CHECK_RESULT(ctx, result);
+    fprintf(stdout,"kmip_encode_private_key() complete...\n");
+
+    uint8 *curr_index = ctx->index;
+    ctx->index = length_index;
+    
+    result = kmip_encode_length(ctx, curr_index - value_index);
+    CHECK_RESULT(ctx, result);
+    fprintf(stdout,"kmip_encode_length() complete...\n");
+
+    ctx->index = curr_index;
+    
+    return(KMIP_OK);
+}
+
+int
+kmip_encode_register_response_payload(KMIP *ctx, const RegisterResponsePayload *value)
+{
+    fprintf(stdout,"entering kmip_encode_register_response_payload()...\n");
+    CHECK_ENCODE_ARGS(ctx, value);
+
+    int result = 0;
+    result = kmip_encode_int32_be(ctx, TAG_TYPE(KMIP_TAG_RESPONSE_PAYLOAD, KMIP_TYPE_STRUCTURE));
+    CHECK_RESULT(ctx, result);
+    
+    uint8 *length_index = ctx->index;
+    uint8 *value_index = ctx->index += 4;
+    
+    result = kmip_encode_text_string(ctx, KMIP_TAG_UNIQUE_IDENTIFIER, value->unique_identifier);
+    CHECK_RESULT(ctx, result);
+
+    if(value->template_attribute != NULL)
+    {
+        result = kmip_encode_template_attribute(ctx, value->template_attribute);
+        CHECK_RESULT(ctx, result);
+    }
     
     uint8 *curr_index = ctx->index;
     ctx->index = length_index;
@@ -10432,6 +10557,7 @@ kmip_encode_response_header(KMIP *ctx, const ResponseHeader *value)
 int
 kmip_encode_request_batch_item(KMIP *ctx, const RequestBatchItem *value)
 {
+    fprintf(stdout,"entering kmip_encode_request_batch_item()...\n");
     CHECK_ENCODE_ARGS(ctx, value);
 
     int result = 0;
@@ -10458,7 +10584,7 @@ kmip_encode_request_batch_item(KMIP *ctx, const RequestBatchItem *value)
         result = kmip_encode_byte_string(ctx, KMIP_TAG_UNIQUE_BATCH_ITEM_ID, value->unique_batch_item_id);
         CHECK_RESULT(ctx, result);
     }
-    
+
     switch(value->operation)
     {
         case KMIP_OP_CREATE:
@@ -10472,6 +10598,10 @@ kmip_encode_request_batch_item(KMIP *ctx, const RequestBatchItem *value)
         case KMIP_OP_DESTROY:
         result = kmip_encode_destroy_request_payload(ctx, (DestroyRequestPayload*)value->request_payload);
         break;
+
+        case KMIP_OP_REGISTER:
+        result = kmip_encode_register_request_payload(ctx, (RegisterRequestPayload*)value->request_payload);
+        break;
         
         default:
         kmip_push_error_frame(ctx, __func__, __LINE__);
@@ -10479,12 +10609,14 @@ kmip_encode_request_batch_item(KMIP *ctx, const RequestBatchItem *value)
         break;
     };
     CHECK_RESULT(ctx, result);
+    fprintf(stdout,"kmip_encode_register_request_payload() complete...\n");
     
     uint8 *curr_index = ctx->index;
     ctx->index = length_index;
     
     result = kmip_encode_length(ctx, curr_index - value_index);
     CHECK_RESULT(ctx, result);
+    fprintf(stdout,"kmip_encode_length() complete...\n");
 
     ctx->index = curr_index;
     
@@ -10575,11 +10707,13 @@ kmip_encode_request_message(KMIP *ctx, const RequestMessage *value)
     
     result = kmip_encode_request_header(ctx, value->request_header);
     CHECK_RESULT(ctx, result);
+    fprintf(stdout,"kmip_encode_request_header() complete...\n");
     
     for(size_t i = 0; i < value->batch_count; i++)
     {
         result = kmip_encode_request_batch_item(ctx, &value->batch_items[i]);
         CHECK_RESULT(ctx, result);
+        fprintf(stdout,"kmip_encode_request_batch_item() complete...\n");
     }
     
     uint8 *curr_index = ctx->index;
@@ -10587,6 +10721,7 @@ kmip_encode_request_message(KMIP *ctx, const RequestMessage *value)
     
     result = kmip_encode_length(ctx, curr_index - value_index);
     CHECK_RESULT(ctx, result);
+    fprintf(stdout,"kmip_encode_length() complete...\n");
 
     ctx->index = curr_index;
     

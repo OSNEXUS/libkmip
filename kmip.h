@@ -1374,6 +1374,8 @@ void kmip_print_key_wrapping_specification(FILE *, int, KeyWrappingSpecification
 void kmip_print_template_attribute(FILE *, int, TemplateAttribute *);
 void kmip_print_create_request_payload(FILE *, int, CreateRequestPayload *);
 void kmip_print_create_response_payload(FILE *, int, CreateResponsePayload *);
+void kmip_print_register_request_payload(FILE *, int, RegisterRequestPayload *);
+void kmip_print_register_response_payload(FILE *, int, RegisterResponsePayload *);
 void kmip_print_get_request_payload(FILE *, int, GetRequestPayload *);
 void kmip_print_get_response_payload(FILE *, int, GetResponsePayload *);
 void kmip_print_destroy_request_payload(FILE *, int, DestroyRequestPayload *);
@@ -1540,6 +1542,10 @@ int kmip_encode_get_request_payload(KMIP *, const GetRequestPayload *);
 int kmip_encode_get_response_payload(KMIP *, const GetResponsePayload *);
 int kmip_encode_destroy_request_payload(KMIP *, const DestroyRequestPayload *);
 int kmip_encode_destroy_response_payload(KMIP *, const DestroyResponsePayload *);
+//implement kmip_encode_register_request_payload
+int kmip_encode_register_request_payload(KMIP *, const RegisterRequestPayload *);
+//implement kmip_encode_register_response_payload
+int kmip_encode_register_response_payload(KMIP *, const RegisterResponsePayload *);
 int kmip_encode_nonce(KMIP *, const Nonce *);
 int kmip_encode_username_password_credential(KMIP *, const UsernamePasswordCredential *);
 int kmip_encode_device_credential(KMIP *, const DeviceCredential *);

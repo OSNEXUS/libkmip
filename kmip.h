@@ -418,7 +418,8 @@ enum operation
     KMIP_OP_CREATE  = 0x01,
     KMIP_OP_GET     = 0x0A,
     KMIP_OP_DESTROY = 0x14,
-    KMIP_OP_REGISTER = 0x03
+    KMIP_OP_REGISTER = 0x03,
+    KMIP_OP_LOCATE  = 0x08
 };
 
 enum padding_method
@@ -601,6 +602,7 @@ enum tag
     KMIP_TAG_KEY_WRAPPING_SPECIFICATION       = 0x420047,
     KMIP_TAG_MAC_SIGNATURE                    = 0x42004D,
     KMIP_TAG_MAC_SIGNATURE_KEY_INFORMATION    = 0x42004E,
+    KMIP_TAG_MAXIMUM_ITEMS                    = 0x42004F,
     KMIP_TAG_MAXIMUM_RESPONSE_SIZE            = 0x420050,
     KMIP_TAG_NAME                             = 0x420053,
     KMIP_TAG_NAME_TYPE                        = 0x420054,
@@ -962,6 +964,19 @@ typedef struct get_response_payload
     TextString *unique_identifier;
     void *object;
 } GetResponsePayload;
+
+typedef struct locate_request_payload
+{
+    /* KMIP 1.0 */
+    int maximum_items;
+    Attribute *attributes;
+} LocateRequestPayload;
+
+typedef struct locate_response_payload
+{
+    size_t id_count;
+    TextString **unique_identifiers;
+} LocateResponsePayload;
 
 typedef struct destroy_request_payload
 {
@@ -1426,6 +1441,10 @@ void kmip_free_get_request_payload(KMIP *, GetRequestPayload *);
 void kmip_free_get_response_payload(KMIP *, GetResponsePayload *);
 void kmip_free_destroy_request_payload(KMIP *, DestroyRequestPayload *);
 void kmip_free_destroy_response_payload(KMIP *, DestroyResponsePayload *);
+void kmip_free_register_request_payload(KMIP *, RegisterRequestPayload *);
+void kmip_free_register_response_payload(KMIP *, RegisterResponsePayload *);
+void kmip_free_locate_request_payload(KMIP *, LocateRequestPayload *);
+void kmip_free_locate_response_payload(KMIP *, LocateResponsePayload *);
 void kmip_free_request_batch_item(KMIP *, RequestBatchItem *);
 void kmip_free_response_batch_item(KMIP *, ResponseBatchItem *);
 void kmip_free_nonce(KMIP *, Nonce *);
@@ -1542,10 +1561,10 @@ int kmip_encode_get_request_payload(KMIP *, const GetRequestPayload *);
 int kmip_encode_get_response_payload(KMIP *, const GetResponsePayload *);
 int kmip_encode_destroy_request_payload(KMIP *, const DestroyRequestPayload *);
 int kmip_encode_destroy_response_payload(KMIP *, const DestroyResponsePayload *);
-//implement kmip_encode_register_request_payload
 int kmip_encode_register_request_payload(KMIP *, const RegisterRequestPayload *);
-//implement kmip_encode_register_response_payload
 int kmip_encode_register_response_payload(KMIP *, const RegisterResponsePayload *);
+int kmip_encode_locate_request_payload(KMIP *, const LocateRequestPayload *);
+int kmip_encode_locate_response_payload(KMIP *, const LocateResponsePayload *);
 int kmip_encode_nonce(KMIP *, const Nonce *);
 int kmip_encode_username_password_credential(KMIP *, const UsernamePasswordCredential *);
 int kmip_encode_device_credential(KMIP *, const DeviceCredential *);
@@ -1603,6 +1622,10 @@ int kmip_decode_get_request_payload(KMIP *, GetRequestPayload *);
 int kmip_decode_get_response_payload(KMIP *, GetResponsePayload *);
 int kmip_decode_destroy_request_payload(KMIP *, DestroyRequestPayload *);
 int kmip_decode_destroy_response_payload(KMIP *, DestroyResponsePayload *);
+int kmip_decode_register_request_payload(KMIP *, RegisterRequestPayload *);
+int kmip_decode_register_response_payload(KMIP *, RegisterResponsePayload *);
+int kmip_decode_locate_request_payload(KMIP *, LocateResponsePayload *);
+int kmip_decode_locate_response_payload(KMIP *, LocateResponsePayload *);
 int kmip_decode_request_batch_item(KMIP *, RequestBatchItem *);
 int kmip_decode_response_batch_item(KMIP *, ResponseBatchItem *);
 int kmip_decode_nonce(KMIP *, Nonce *);

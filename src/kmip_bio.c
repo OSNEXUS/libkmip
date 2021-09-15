@@ -1701,7 +1701,6 @@ int kmip_bio_get_key_with_context(KMIP *ctx, BIO *bio,
     return(result);
 }
 
-/* Locates a key on the server with an application specific UUID with a specified namespace. */
 int kmip_bio_locate_key_with_context(KMIP *ctx, BIO *bio,
                                   char *uuid, int uuid_size,
                                   char *namespace, int namespace_size,
@@ -1757,7 +1756,7 @@ int kmip_bio_locate_key_with_context(KMIP *ctx, BIO *bio,
     a.value = &asi;
     
     LocateRequestPayload lrp = {0};
-    lrp.maximum_items = 1;
+    lrp.maximum_items = 1; // get uniquly identified item with qstor-id
     lrp.attributes = &a;
     
     RequestBatchItem rbi = {0};
@@ -1939,7 +1938,6 @@ int kmip_bio_locate_key_with_context(KMIP *ctx, BIO *bio,
     return(result);
 }
 
-/* Locate all operation will return a list of all KMIP unique IDs that are accessable */
 int kmip_bio_locate_all_with_context(KMIP *ctx, BIO *bio, char ***kmip_id_list, int* kmip_id_count)
 {
     if(ctx == NULL || bio == NULL)
@@ -2169,6 +2167,7 @@ int kmip_bio_locate_all_with_context(KMIP *ctx, BIO *bio, char ***kmip_id_list, 
         {
             tmpList[i] = (char *) ctx->calloc_func(ctx->state,pld->unique_identifiers[i]->size,sizeof(char));
             kmip_memcpy(ctx->state,tmpList[i],pld->unique_identifiers[i]->value,pld->unique_identifiers[i]->size);
+            //tmpList[i] = pld->unique_identifiers[i]->value;
         }
         *kmip_id_list = tmpList;
     }

@@ -15,6 +15,7 @@
 #include "kmip.h"
 #include "kmip_memset.h"
 
+
 /*
 Miscellaneous Utilities
 */
@@ -870,6 +871,7 @@ kmip_check_enum_value(enum kmip_version version, enum tag t, int value)
             case KMIP_OP_DESTROY:
             case KMIP_OP_REGISTER:
             case KMIP_OP_LOCATE:
+            case KMIP_OP_QUERY:
             return(KMIP_OK);
             break;
             
@@ -1134,6 +1136,69 @@ kmip_check_enum_value(enum kmip_version version, enum tag t, int value)
         };
         break;
         
+        case KMIP_TAG_QUERY_FUNCTION:
+        switch (value)
+        {
+            /* KMIP 1.0 */
+            case KMIP_QUERY_OPERATIONS:
+            case KMIP_QUERY_OBJECTS:
+            case KMIP_QUERY_SERVER_INFORMATION:
+            case KMIP_QUERY_APPLICATION_NAMESPACES:
+                return(KMIP_OK);
+                break;
+
+            /* KMIP 1.1 */
+            case KMIP_QUERY_EXTENSION_LIST:
+            case KMIP_QUERY_EXTENSION_MAP:
+                {
+                    if(version >= KMIP_1_1)
+                        return(KMIP_OK);
+                    else
+                        return(KMIP_INVALID_FOR_VERSION);
+                }
+                break;
+
+            /* KMIP 1.2 */
+            case KMIP_QUERY_ATTESTATION_TYPES:
+                {
+                    if(version >= KMIP_1_2)
+                        return(KMIP_OK);
+                    else
+                        return(KMIP_INVALID_FOR_VERSION);
+                }
+                break;
+
+            /* KMIP 1.3 */
+            case KMIP_QUERY_RNGS:
+            case KMIP_QUERY_VALIDATIONS:
+            case KMIP_QUERY_PROFILES:
+            case KMIP_QUERY_CAPABILITIES:
+            case KMIP_QUERY_CLIENT_REGISTRATION_METHODS:
+                {
+                    if(version >= KMIP_1_3)
+                        return(KMIP_OK);
+                    else
+                        return(KMIP_INVALID_FOR_VERSION);
+                }
+                break;
+
+            /* KMIP 2.0 */
+            case KMIP_QUERY_DEFAULTS_INFORMATION:
+            case KMIP_QUERY_STORAGE_PROTECTION_MASKS:
+                {
+                    if(version >= KMIP_2_0)
+                        return(KMIP_OK);
+                    else
+                        return(KMIP_INVALID_FOR_VERSION);
+                }
+                break;
+
+            default:
+                return(KMIP_ENUM_MISMATCH);
+                break;
+        }
+        break;
+        
         default:
         return(KMIP_ENUM_UNSUPPORTED);
         break;
@@ -1154,7 +1219,7 @@ kmip_clear_errors(KMIP *ctx)
     
     for(size_t i = 0; i < ARRAY_LENGTH(ctx->errors); i++)
     {
-        ctx->errors[i] = (ErrorFrame){0};
+        ctx->errors[i] = (ErrorFrame){{0},0};
     }
     ctx->frame_index = ctx->errors;
     
@@ -1736,218 +1801,101 @@ kmip_init_request_batch_item(RequestBatchItem *value)
 }
 
 /*
-Printing Functions
+Freeing Functions
 */
 
 void
-kmip_print_buffer(FILE *f, void *buffer, int size)
-{
-    if(buffer == NULL)
-    {
-        return;
-    }
-    
-    uint8 *index = (uint8 *)buffer;
-    for(int i = 0; i < size; i++)
-    {
-        if(i % 16 == 0)
-        {
-            fprintf(f, "\n0x");
-        }
-        fprintf(f, "%02X", index[i]);
-    }
-}
-
-void
-kmip_print_stack_trace(FILE *f, KMIP *ctx)
+kmip_free_buffer(KMIP *ctx, void *buffer, size_t size)
 {
     if(ctx == NULL)
     {
         return;
     }
     
-    ErrorFrame *index = ctx->frame_index;
-    do
-    {
-        fprintf(f, "- %s @ line: %d\n", index->function, index->line);
-    } while(index-- != ctx->errors);
+    ctx->memset_func(buffer, 0, size);
+    ctx->free_func(ctx->state, buffer);
 }
 
 void
-kmip_print_error_string(FILE *f, int value)
+kmip_free_text_string(KMIP *ctx, TextString *value)
 {
-    /* TODO (ph) Move this to a static string array. */
-    switch(value)
+    if(ctx == NULL)
     {
-        case 0:
+        return;
+    }
+    
+    if(value != NULL)
+    {
+        if(value->value != NULL)
         {
-            fprintf(f, "KMIP_OK");
-        } break;
+            ctx->memset_func(value->value, 0, value->size);
+            ctx->free_func(ctx->state, value->value);
+            
+            value->value = NULL;
+        }
         
-        case -1:
-        {
-            fprintf(f, "KMIP_NOT_IMPLEMENTED");
-        } break;
-        
-        case -2:
-        {
-            fprintf(f, "KMIP_ERROR_BUFFER_FULL");
-        } break;
-        
-        case -3:
-        {
-            fprintf(f, "KMIP_ERROR_ATTR_UNSUPPORTED");
-        } break;
-        
-        case -4:
-        {
-            fprintf(f, "KMIP_TAG_MISMATCH");
-        } break;
-        
-        case -5:
-        {
-            fprintf(f, "KMIP_TYPE_MISMATCH");
-        } break;
-        
-        case -6:
-        {
-            fprintf(f, "KMIP_LENGTH_MISMATCH");
-        } break;
-        
-        case -7:
-        {
-            fprintf(f, "KMIP_PADDING_MISMATCH");
-        } break;
-        
-        case -8:
-        {
-            fprintf(f, "KMIP_BOOLEAN_MISMATCH");
-        } break;
-        
-        case -9:
-        {
-            fprintf(f, "KMIP_ENUM_MISMATCH");
-        } break;
-        
-        case -10:
-        {
-            fprintf(f, "KMIP_ENUM_UNSUPPORTED");
-        } break;
-        
-        case -11:
-        {
-            fprintf(f, "KMIP_INVALID_FOR_VERSION");
-        } break;
-        
-        case -12:
-        {
-            fprintf(f, "KMIP_MEMORY_ALLOC_FAILED");
-        } break;
-
-        case -13:
-        {
-            fprintf(f, "KMIP_IO_FAILURE");
-        } break;
-
-        case -14:
-        {
-            fprintf(f, "KMIP_EXCEED_MAX_MESSAGE_SIZE");
-        } break;
-
-        case -15:
-        {
-            fprintf(f, "KMIP_MALFORMED_RESPONSE");
-        } break;
-
-        case -16:
-        {
-            fprintf(f, "KMIP_OBJECT_MISMATCH");
-        } break;
-
-        case -17:
-        {
-            fprintf(f, "KMIP_ARG_INVALID");
-        } break;
-
-        case -18:
-        {
-            fprintf(f, "KMIP_ERROR_BUFFER_UNDERFULL");
-        } break;
-
-        default:
-        {
-            fprintf(f, "Unrecognized Error Code");
-        } break;
-    };
+        value->size = 0;
+    }
     
     return;
 }
 
 void
-kmip_print_attestation_type_enum(FILE *f, enum attestation_type value)
+kmip_free_byte_string(KMIP *ctx, ByteString *value)
 {
-    if(value == 0)
+    if(value != NULL)
     {
-        fprintf(f, "-");
-        return;
+        if(value->value != NULL)
+        {
+            ctx->memset_func(value->value, 0, value->size);
+            ctx->free_func(ctx->state, value->value);
+            
+            value->value = NULL;
+        }
+        
+        value->size = 0;
     }
     
-    switch(value)
-    {
-        case KMIP_ATTEST_TPM_QUOTE:
-        fprintf(f, "TPM Quote");
-        break;
-        
-        case KMIP_ATTEST_TCG_INTEGRITY_REPORT:
-        fprintf(f, "TCG Integrity Report");
-        break;
-        
-        case KMIP_ATTEST_SAML_ASSERTION:
-        fprintf(f, "SAML Assertion");
-        break;
-        
-        default:
-        fprintf(f, "Unknown");
-        break;
-    };
+    return;
 }
 
 void
-kmip_print_batch_error_continuation_option(FILE *f, enum batch_error_continuation_option value)
+kmip_free_name(KMIP *ctx, Name *value)
 {
-    if(value == 0)
+    if(value != NULL)
     {
-        fprintf(f, "-");
-        return;
+        if(value->value != NULL)
+        {
+            kmip_free_text_string(ctx, value->value);
+            ctx->free_func(ctx->state, value->value);
+            
+            value->value = NULL;
+        }
+        
+        value->type = 0;
     }
     
-    switch(value)
-    {
-        case KMIP_BATCH_CONTINUE:
-        fprintf(f, "Continue");
-        break;
-        
-        case KMIP_BATCH_STOP:
-        fprintf(f, "Stop");
-        break;
-        
-        case KMIP_BATCH_UNDO:
-        fprintf(f, "Undo");
-        break;
-        
-        default:
-        fprintf(f, "Unknown");
-        break;
-    };
+    return;
 }
 
 void
-kmip_print_operation_enum(FILE *f, enum operation value)
+kmip_free_protection_storage_masks(KMIP *ctx, ProtectionStorageMasks *value)
 {
-    if(value == 0)
+    if(value != NULL)
     {
-        fprintf(f, "-");
-        return;
+        if(value->masks != NULL)
+        {
+            LinkedListItem *curr = kmip_linked_list_pop(value->masks);
+            while(curr != NULL)
+            {
+                ctx->free_func(ctx->state, curr->data);
+                curr->data = NULL;
+                ctx->free_func(ctx->state, curr);
+                curr = kmip_linked_list_pop(value->masks);
+            }
+            ctx->free_func(ctx->state, value->masks);
+            value->masks = NULL;
+        }
     }
     
     switch(value)
@@ -1972,37 +1920,12 @@ kmip_print_operation_enum(FILE *f, enum operation value)
         fprintf(f, "Unknown");
         break;
     };
+
+    return;
 }
 
 void
-kmip_print_result_status_enum(FILE *f, enum result_status value)
-{
-    switch(value)
-    {
-        case KMIP_STATUS_SUCCESS:
-        fprintf(f, "Success");
-        break;
-        
-        case KMIP_STATUS_OPERATION_FAILED:
-        fprintf(f, "Operation Failed");
-        break;
-        
-        case KMIP_STATUS_OPERATION_PENDING:
-        fprintf(f, "Operation Pending");
-        break;
-        
-        case KMIP_STATUS_OPERATION_UNDONE:
-        fprintf(f, "Operation Undone");
-        break;
-        
-        default:
-        fprintf(f, "Unknown");
-        break;
-    };
-}
-
-void
-kmip_print_result_reason_enum(FILE *f, enum result_reason value)
+kmip_free_attribute(KMIP *ctx, Attribute *value)
 {
     if(value == 0)
     {
@@ -5546,6 +5469,10 @@ kmip_free_request_batch_item(KMIP *ctx, RequestBatchItem *value)
                 kmip_free_locate_request_payload(ctx, (LocateRequestPayload *)value->request_payload);
                 break;
                 
+                case KMIP_OP_QUERY:
+                kmip_free_query_request_payload(ctx, (QueryRequestPayload *)value->request_payload);
+                break;
+
                 default:
                 /* NOTE (ph) Hitting this case means that we don't know    */
                 /*      what the actual type, size, or value of            */
@@ -5620,6 +5547,10 @@ kmip_free_response_batch_item(KMIP *ctx, ResponseBatchItem *value)
                 break;
 
                 
+                case KMIP_OP_QUERY:
+                kmip_free_query_response_payload(ctx, (QueryResponsePayload *)value->response_payload);
+                break;
+
                 default:
                 /* NOTE (ph) Hitting this case means that we don't know    */
                 /*      what the actual type, size, or value of            */
@@ -6016,6 +5947,137 @@ kmip_free_response_message(KMIP *ctx, ResponseMessage *value)
     return;
 }
 
+void
+kmip_free_query_functions(KMIP *ctx, Functions* value)
+{
+    if (value != NULL)
+    {
+        if (value->function_list != NULL)
+        {
+            LinkedListItem *curr = kmip_linked_list_pop(value->function_list);
+            while(curr != NULL)
+            {
+                ctx->free_func(ctx->state, curr->data);
+                curr->data = NULL;
+                ctx->free_func(ctx->state, curr);
+                curr = kmip_linked_list_pop(value->function_list);
+            }
+            ctx->free_func(ctx->state, value->function_list);
+            value->function_list = NULL;
+        }
+    }
+
+    return;
+}
+
+void
+kmip_free_query_response_payload(KMIP *ctx, QueryResponsePayload *value)
+{
+    if (value->operations)
+    {
+        kmip_free_operations(ctx, value->operations);
+        ctx->free_func(ctx->state, value->operations);
+        value->operations = NULL;
+    }
+    if (value->objects)
+    {
+        kmip_free_objects(ctx, value->objects);
+        ctx->free_func(ctx->state, value->objects);
+        value->objects = NULL;
+    }
+
+    if (value->vendor_identification)
+    {
+        kmip_free_text_string(ctx, value->vendor_identification);
+        ctx->free_func(ctx->state, value->vendor_identification);
+        value->vendor_identification = NULL;
+    }
+
+    if (value->server_information)
+    {
+        kmip_free_server_information(ctx, value->server_information);
+        ctx->free_func(ctx->state, value->server_information);
+        value->server_information = NULL;
+    }
+}
+
+
+void
+kmip_free_query_request_payload(KMIP *ctx, QueryRequestPayload *value)
+{
+    if(ctx == NULL || value == NULL)
+    {
+        return;
+    }
+
+    if (value->functions != NULL)
+    {
+        kmip_free_query_functions(ctx, value->functions);
+        ctx->free_func(ctx->state, value->functions);
+        value->functions = NULL;
+    }
+}
+
+void
+kmip_free_operations(KMIP *ctx, Operations *value)
+{
+
+    if(value != NULL)
+    {
+        if(value->operation_list != NULL)
+        {
+            LinkedListItem *curr = kmip_linked_list_pop(value->operation_list);
+            while(curr != NULL)
+            {
+                ctx->free_func(ctx->state, curr->data);
+                curr->data = NULL;
+                ctx->free_func(ctx->state, curr);
+                curr = kmip_linked_list_pop(value->operation_list);
+            }
+            ctx->free_func(ctx->state, value->operation_list);
+            value->operation_list = NULL;
+        }
+    }
+
+    return;
+}
+void
+kmip_free_objects(KMIP *ctx, ObjectTypes* value)
+{
+    if(value != NULL)
+    {
+        if(value->object_list != NULL)
+        {
+            LinkedListItem *curr = kmip_linked_list_pop(value->object_list);
+            while(curr != NULL)
+            {
+                ctx->free_func(ctx->state, curr->data);
+                curr->data = NULL;
+                ctx->free_func(ctx->state, curr);
+                curr = kmip_linked_list_pop(value->object_list);
+            }
+            ctx->free_func(ctx->state, value->object_list);
+            value->object_list = NULL;
+        }
+    }
+
+    return;
+}
+
+
+void
+kmip_free_server_information(KMIP* ctx, ServerInformation* value)
+{
+    kmip_free_text_string(ctx, value->server_name);
+    kmip_free_text_string(ctx, value->server_serial_number);
+    kmip_free_text_string(ctx, value->server_version);
+    kmip_free_text_string(ctx, value->server_load);
+    kmip_free_text_string(ctx, value->product_name);
+    kmip_free_text_string(ctx, value->build_level);
+    kmip_free_text_string(ctx, value->build_date);
+    kmip_free_text_string(ctx, value->cluster_info);
+}
+
 /*
 Copying Functions
 */
@@ -6325,6 +6387,88 @@ kmip_deep_copy_attribute(KMIP *ctx, const Attribute *value)
 
     return(copy);
 }
+
+char*
+kmip_copy_textstring(char* dest, TextString* src, size_t size)
+{
+    if(src && src->value != NULL)
+    {
+        size_t len = KMIP_MIN(size, src->size);
+        memcpy(dest, src->value, len);
+        dest[len] = 0;
+    }
+    else
+        *dest = 0;
+
+    return dest;
+}
+
+void
+kmip_copy_operations(int ops[], size_t* ops_size, Operations *value, unsigned max_ops)
+{
+    if(value != NULL &&
+       value->operation_list != NULL)
+    {
+        *ops_size = value->operation_list->size;
+
+        LinkedListItem *curr = value->operation_list->head;
+        size_t idx = 0;
+        while(curr != NULL && idx < max_ops )
+        {
+            ops[idx] = *(int32 *)curr->data;
+            curr = curr->next;
+            idx++;
+        }
+    }
+}
+
+void
+kmip_copy_objects(int objs[], size_t* objs_size, ObjectTypes *value, unsigned max_objs)
+{
+    if(value != NULL &&
+       value->object_list != NULL)
+    {
+        *objs_size = value->object_list->size;
+
+        LinkedListItem *curr = value->object_list->head;
+        size_t idx = 0;
+        while(curr != NULL && idx < max_objs )
+        {
+            objs[idx] = *(int32 *)curr->data;
+            curr = curr->next;
+            idx++;
+        }
+    }
+}
+
+void
+kmip_copy_query_result(QueryResponse* query_result, QueryResponsePayload *pld)
+{
+    if(pld != NULL)
+    {
+        kmip_copy_operations(query_result->operations, &query_result->operations_size, pld->operations, MAX_QUERY_OPS);
+        kmip_copy_objects(query_result->objects, &query_result->objects_size, pld->objects, MAX_QUERY_OBJS);
+
+        if(pld->vendor_identification)
+        {
+            kmip_copy_textstring(query_result->vendor_identification, pld->vendor_identification, sizeof(query_result->vendor_identification)-1);
+        }
+
+        if(pld->server_information)
+        {
+            ServerInformation* srv = pld->server_information;
+            query_result->server_information_valid = 1;
+            kmip_copy_textstring(query_result->server_name, srv->server_name, MAX_QUERY_LEN-1);
+            kmip_copy_textstring(query_result->server_serial_number, srv->server_serial_number, MAX_QUERY_LEN-1);
+            kmip_copy_textstring(query_result->server_version, srv->server_version, MAX_QUERY_LEN-1);
+            kmip_copy_textstring(query_result->server_load, srv->server_load, MAX_QUERY_LEN-1);
+            kmip_copy_textstring(query_result->product_name, srv->product_name, MAX_QUERY_LEN-1);
+            kmip_copy_textstring(query_result->build_level, srv->build_level, MAX_QUERY_LEN-1);
+            kmip_copy_textstring(query_result->build_date, srv->build_date, MAX_QUERY_LEN-1);
+        }
+    }
+}
+
 
 /*
 Comparison Functions
@@ -7737,6 +7881,13 @@ kmip_compare_request_batch_item(const RequestBatchItem *a, const RequestBatchIte
                 }
                 break;
                 
+                case KMIP_OP_QUERY:
+                if(kmip_compare_query_request_payload((QueryRequestPayload *)a->request_payload, (QueryRequestPayload *)b->request_payload) == KMIP_FALSE)
+                {
+                    return(KMIP_FALSE);
+                }
+                break;
+                
                 default:
                 /* NOTE (ph) Unsupported payloads cannot be compared. */
                 return(KMIP_FALSE);
@@ -7842,6 +7993,13 @@ kmip_compare_response_batch_item(const ResponseBatchItem *a, const ResponseBatch
                 }
                 break;
                 
+                case KMIP_OP_QUERY:
+                if(kmip_compare_query_response_payload((QueryResponsePayload *)a->response_payload, (QueryResponsePayload *)b->response_payload) == KMIP_FALSE)
+                {
+                    return(KMIP_FALSE);
+                }
+                break;
+
                 default:
                 /* NOTE (ph) Unsupported payloads cannot be compared. */
                 return(KMIP_FALSE);
@@ -8516,6 +8674,361 @@ kmip_compare_response_message(const ResponseMessage *a, const ResponseMessage *b
     
     return(KMIP_TRUE);
 }
+
+int
+kmip_compare_linklist_items_int32(const LinkedListItem *a_item, const LinkedListItem *b_item)
+{
+    while((a_item != NULL) && (b_item != NULL))
+    {
+        if(a_item != b_item)
+        {
+            int32 *a_data = (int32 *)a_item->data;
+            int32 *b_data = (int32 *)b_item->data;
+            if(a_data != b_data)
+            {
+                if((a_data == NULL) || (b_data == NULL))
+                {
+                    return(KMIP_FALSE);
+                }
+                if(*a_data != *b_data)
+                {
+                    return(KMIP_FALSE);
+                }
+            }
+        }
+
+        a_item = a_item->next;
+        b_item = b_item->next;
+    }
+
+    if(a_item != b_item)
+    {
+        return(KMIP_FALSE);
+    }
+
+    return(KMIP_TRUE);
+}
+
+int
+kmip_compare_linklist_items_textstring(const LinkedListItem *a_item, const LinkedListItem *b_item)
+{
+    while((a_item != NULL) && (b_item != NULL))
+    {
+        if(a_item != b_item)
+        {
+            TextString *a_data = (TextString *)a_item->data;
+            TextString *b_data = (TextString *)b_item->data;
+            if(kmip_compare_text_string(a_data, b_data) == KMIP_FALSE)
+            {
+                return(KMIP_FALSE);
+            }
+        }
+
+        a_item = a_item->next;
+        b_item = b_item->next;
+    }
+
+    if(a_item != b_item)
+    {
+        return(KMIP_FALSE);
+    }
+
+    return(KMIP_TRUE);
+}
+
+int
+kmip_compare_query_functions(const Functions* a, const Functions* b)
+{
+    if(a != b )
+    {
+        if((a == NULL) || (b == NULL))
+        {
+            return(KMIP_FALSE);
+        }
+
+        if((a->function_list != b->function_list))
+        {
+            if((a->function_list == NULL) || (b->function_list == NULL))
+            {
+                return(KMIP_FALSE);
+            }
+
+            if((a->function_list->size != b->function_list->size))
+            {
+                return(KMIP_FALSE);
+            }
+
+            LinkedListItem *a_item = a->function_list->head;
+            LinkedListItem *b_item = b->function_list->head;
+
+            if (kmip_compare_linklist_items_int32(a_item, b_item) == KMIP_FALSE)
+            {
+                return(KMIP_FALSE);
+            }
+        }
+    }
+
+    return(KMIP_TRUE);
+}
+
+int
+kmip_compare_operations(const Operations *a, const Operations *b)
+{
+    if(a != b)
+    {
+        if((a == NULL) || (b == NULL))
+        {
+            return(KMIP_FALSE);
+        }
+
+        if((a->operation_list != b->operation_list))
+        {
+            if((a->operation_list == NULL) || (b->operation_list == NULL))
+            {
+                return(KMIP_FALSE);
+            }
+
+            if((a->operation_list->size != b->operation_list->size))
+            {
+                return(KMIP_FALSE);
+            }
+
+            LinkedListItem *a_item = a->operation_list->head;
+            LinkedListItem *b_item = b->operation_list->head;
+            if (kmip_compare_linklist_items_int32(a_item, b_item) == KMIP_FALSE)
+            {
+                return(KMIP_FALSE);
+            }
+        }
+    }
+
+    return(KMIP_TRUE);
+}
+
+int
+kmip_compare_objects(const ObjectTypes *a, const ObjectTypes *b)
+{
+    if(a != b)
+    {
+        if((a == NULL) || (b == NULL))
+        {
+            return(KMIP_FALSE);
+        }
+
+        if((a->object_list != b->object_list))
+        {
+            if((a->object_list == NULL) || (b->object_list == NULL))
+            {
+                return(KMIP_FALSE);
+            }
+
+            if((a->object_list->size != b->object_list->size))
+            {
+                return(KMIP_FALSE);
+            }
+
+            LinkedListItem *a_item = a->object_list->head;
+            LinkedListItem *b_item = b->object_list->head;
+            if (kmip_compare_linklist_items_int32(a_item, b_item) == KMIP_FALSE)
+            {
+                return(KMIP_FALSE);
+            }
+        }
+    }
+
+    return(KMIP_TRUE);
+}
+
+int
+kmip_compare_alternative_endpoints(const AltEndpoints* a, const AltEndpoints* b)
+{
+    if(a != b)
+    {
+        if((a == NULL) || (b == NULL))
+        {
+            return(KMIP_FALSE);
+        }
+
+        if((a->endpoint_list != b->endpoint_list))
+        {
+            if((a->endpoint_list == NULL) || (b->endpoint_list == NULL))
+            {
+                return(KMIP_FALSE);
+            }
+
+            if((a->endpoint_list->size != b->endpoint_list->size))
+            {
+                return(KMIP_FALSE);
+            }
+
+            LinkedListItem *a_item = a->endpoint_list->head;
+            LinkedListItem *b_item = b->endpoint_list->head;
+            if (kmip_compare_linklist_items_textstring(a_item, b_item) == KMIP_FALSE)
+            {
+                return(KMIP_FALSE);
+            }
+        }
+    }
+
+    return(KMIP_TRUE);
+}
+
+int
+kmip_compare_server_information(const ServerInformation* a, const ServerInformation* b)
+{
+    if(a != b)
+    {
+        if((a == NULL) || (b == NULL))
+        {
+            return(KMIP_FALSE);
+        }
+
+        if(kmip_compare_text_string(a->server_name, b->server_name) == KMIP_FALSE)
+        {
+            return(KMIP_FALSE);
+        }
+
+        if(kmip_compare_text_string(a->server_serial_number, b->server_serial_number) == KMIP_FALSE)
+        {
+            return(KMIP_FALSE);
+        }
+
+        if(kmip_compare_text_string(a->server_version, b->server_version) == KMIP_FALSE)
+        {
+            return(KMIP_FALSE);
+        }
+
+        if(kmip_compare_text_string(a->server_load, b->server_load) == KMIP_FALSE)
+        {
+            return(KMIP_FALSE);
+        }
+        if(kmip_compare_text_string(a->product_name, b->product_name) == KMIP_FALSE)
+        {
+            return(KMIP_FALSE);
+        }
+        if(kmip_compare_text_string(a->build_level, b->build_level) == KMIP_FALSE)
+        {
+            return(KMIP_FALSE);
+        }
+        if(kmip_compare_text_string(a->build_date, b->build_date) == KMIP_FALSE)
+        {
+            return(KMIP_FALSE);
+        }
+
+        if(a->alternative_failover_endpoints != b->alternative_failover_endpoints )
+        {
+            if(kmip_compare_alternative_endpoints(a->alternative_failover_endpoints, b->alternative_failover_endpoints) == KMIP_FALSE)
+            {
+                return(KMIP_FALSE);
+            }
+        }
+
+//      if(a->vendor_specific != b->vendor_specific )
+//      {
+//          if(kmip_compare_vendor_specifi(a->vendor_specific, b->vendor_specific) == KMIP_FALSE)
+//          {
+//              return(KMIP_FALSE);
+//          }
+//      }
+
+    }
+
+    return(KMIP_TRUE);
+}
+
+int
+kmip_compare_query_request_payload(const QueryRequestPayload *a, const QueryRequestPayload *b)
+{
+    if(a != b)
+    {
+        if((a == NULL) || (b == NULL))
+        {
+            return(KMIP_FALSE);
+        }
+
+        if(a->functions != b->functions)
+        {
+            if((a->functions == NULL) || (b->functions == NULL))
+            {
+                return(KMIP_FALSE);
+            }
+
+            if(kmip_compare_query_functions(a->functions, b->functions) == KMIP_FALSE)
+            {
+                return(KMIP_FALSE);
+            }
+        }
+    }
+
+    return(KMIP_TRUE);
+}
+
+int
+kmip_compare_query_response_payload(const QueryResponsePayload *a, const QueryResponsePayload *b)
+{
+    if(a != b)
+    {
+        if((a == NULL) || (b == NULL))
+        {
+            return(KMIP_FALSE);
+        }
+
+        if(a->operations != b->operations)
+        {
+            if((a->operations == NULL) || (b->operations == NULL))
+            {
+                return(KMIP_FALSE);
+            }
+
+            if(kmip_compare_operations(a->operations, b->operations) == KMIP_FALSE)
+            {
+                return(KMIP_FALSE);
+            }
+        }
+
+        if(a->objects != b->objects)
+        {
+            if((a->objects == NULL) || (b->objects == NULL))
+            {
+                return(KMIP_FALSE);
+            }
+
+            if(kmip_compare_objects(a->objects, b->objects) == KMIP_FALSE)
+            {
+                return(KMIP_FALSE);
+            }
+        }
+
+        if(a->vendor_identification != b->vendor_identification)
+        {
+            if((a->vendor_identification == NULL) || (b->vendor_identification == NULL))
+            {
+                return(KMIP_FALSE);
+            }
+
+            if(kmip_compare_text_string(a->vendor_identification, b->vendor_identification) == KMIP_FALSE)
+            {
+                return(KMIP_FALSE);
+            }
+        }
+
+        if(a->server_information != b->server_information)
+        {
+            if((a->server_information == NULL) || (b->server_information == NULL))
+            {
+                return(KMIP_FALSE);
+            }
+
+            if(kmip_compare_server_information(a->server_information, b->server_information) == KMIP_FALSE)
+            {
+                return(KMIP_FALSE);
+            }
+        }
+    }
+
+    return(KMIP_TRUE);
+}
+
 
 /*
 Encoding Functions
@@ -10747,6 +11260,10 @@ kmip_encode_request_batch_item(KMIP *ctx, const RequestBatchItem *value)
         result = kmip_encode_locate_request_payload(ctx, (LocateRequestPayload*)value->request_payload);
         break;
         
+        case KMIP_OP_QUERY:
+        result = kmip_encode_query_request_payload(ctx, (QueryRequestPayload*)value->request_payload);
+        break;
+
         default:
         kmip_push_error_frame(ctx, __func__, __LINE__);
         return(KMIP_NOT_IMPLEMENTED);
@@ -10819,6 +11336,10 @@ kmip_encode_response_batch_item(KMIP *ctx, const ResponseBatchItem *value)
         result = kmip_encode_destroy_response_payload(ctx, (DestroyResponsePayload*)value->response_payload);
         break;
         
+        case KMIP_OP_QUERY:
+        result = kmip_encode_query_response_payload(ctx, (QueryResponsePayload*)value->response_payload);
+        break;
+
         default:
         kmip_push_error_frame(ctx, __func__, __LINE__);
         return(KMIP_NOT_IMPLEMENTED);
@@ -10895,6 +11416,63 @@ kmip_encode_response_message(KMIP *ctx, const ResponseMessage *value)
     ctx->index = curr_index;
     
     return(KMIP_OK);
+}
+
+int
+kmip_encode_query_functions(KMIP *ctx, const Functions* value)
+{
+    CHECK_ENCODE_ARGS(ctx, value);
+
+    int result = 0;
+
+    if(value->function_list != NULL)
+    {
+        LinkedListItem *curr = value->function_list->head;
+        while(curr != NULL)
+        {
+            result = kmip_encode_enum(ctx, KMIP_TAG_QUERY_FUNCTION, *(int32 *)curr->data);
+            CHECK_RESULT(ctx, result);
+
+            curr = curr->next;
+        }
+    }
+
+    return(KMIP_OK);
+}
+int
+kmip_encode_query_request_payload(KMIP *ctx, const QueryRequestPayload *value)
+{
+    int result = 0;
+    result = kmip_encode_int32_be(ctx, TAG_TYPE(KMIP_TAG_REQUEST_PAYLOAD, KMIP_TYPE_STRUCTURE));
+    CHECK_RESULT(ctx, result);
+
+    uint8 *length_index = ctx->index;
+    uint8 *value_index = ctx->index += 4;
+
+    if(value->functions != NULL)
+    {
+        result = kmip_encode_query_functions(ctx, value->functions);
+        CHECK_RESULT(ctx, result);
+    }
+
+    uint8 *curr_index = ctx->index;
+    ctx->index = length_index;
+
+    kmip_encode_int32_be(ctx, curr_index - value_index);
+
+    ctx->index = curr_index;
+
+    return(KMIP_OK);
+}
+
+
+int
+kmip_encode_query_response_payload(KMIP *ctx, const QueryResponsePayload *value)
+{
+    //TODO
+    (void) ctx;
+    (void) value;
+    return(KMIP_NOT_IMPLEMENTED);
 }
 
 /*
@@ -12934,6 +13512,12 @@ kmip_decode_request_batch_item(KMIP *ctx, RequestBatchItem *value)
         result = kmip_decode_register_request_payload(ctx, (RegisterRequestPayload*)value->request_payload);
         break;
         
+        case KMIP_OP_QUERY:
+        value->request_payload = ctx->calloc_func(ctx->state, 1, sizeof(QueryRequestPayload));
+        CHECK_NEW_MEMORY(ctx, value->request_payload, sizeof(QueryRequestPayload), "QueryRequestPayload structure");
+        result = kmip_decode_query_request_payload(ctx, (QueryRequestPayload*)value->request_payload);
+        break;
+
         default:
         kmip_push_error_frame(ctx, __func__, __LINE__);
         return(KMIP_NOT_IMPLEMENTED);
@@ -13039,6 +13623,12 @@ kmip_decode_response_batch_item(KMIP *ctx, ResponseBatchItem *value)
             result = kmip_decode_locate_response_payload(ctx, value->response_payload);
             break;
             
+            case KMIP_OP_QUERY:
+            value->response_payload = ctx->calloc_func(ctx->state, 1, sizeof(QueryResponsePayload));
+            CHECK_NEW_MEMORY(ctx, value->response_payload, sizeof(QueryResponsePayload), "QueryResponsePayload structure");
+            result = kmip_decode_query_response_payload(ctx, value->response_payload);
+            break;
+
             default:
             kmip_push_error_frame(ctx, __func__, __LINE__);
             return(KMIP_NOT_IMPLEMENTED);
@@ -13589,3 +14179,292 @@ kmip_decode_response_message(KMIP *ctx, ResponseMessage *value)
     
     return(KMIP_OK);
 }
+
+int
+kmip_decode_query_functions(KMIP *ctx, Functions* value)
+{
+    int result = 0;
+    uint32 tag = kmip_peek_tag(ctx);
+
+    value->function_list = ctx->calloc_func(ctx->state, 1, sizeof(LinkedList));
+    CHECK_NEW_MEMORY(ctx, value->function_list, sizeof(LinkedList), "LinkedList");
+
+    while(tag == KMIP_TAG_QUERY_FUNCTION)
+    {
+        LinkedListItem *item = ctx->calloc_func(ctx->state, 1, sizeof(LinkedListItem));
+        CHECK_NEW_MEMORY(ctx, item, sizeof(LinkedListItem), "LinkedListItem");
+        kmip_linked_list_enqueue(value->function_list, item);
+
+        item->data = ctx->calloc_func(ctx->state, 1, sizeof(int32));
+        CHECK_NEW_MEMORY(ctx, item->data, sizeof(int32), "Query Function");
+
+        result = kmip_decode_enum(ctx, KMIP_TAG_QUERY_FUNCTION, (int32 *)item->data);
+        CHECK_RESULT(ctx, result);
+
+        tag = kmip_peek_tag(ctx);
+    }
+
+    return(KMIP_OK);
+}
+
+int
+kmip_decode_query_request_payload(KMIP *ctx, QueryRequestPayload *value)
+{
+    CHECK_DECODE_ARGS(ctx, value);
+    CHECK_BUFFER_FULL(ctx, 8);
+
+    int result = 0;
+    int32 tag_type = 0;
+    uint32 length = 0;
+
+    result = kmip_decode_int32_be(ctx, &tag_type);
+    CHECK_RESULT(ctx, result);
+    CHECK_TAG_TYPE(ctx, tag_type, KMIP_TAG_QUERY_FUNCTION, KMIP_TYPE_STRUCTURE);
+
+    result = kmip_decode_int32_be(ctx, &length);
+    CHECK_RESULT(ctx, result);
+    CHECK_BUFFER_FULL(ctx, length);
+
+    if(kmip_is_tag_next(ctx, KMIP_TAG_QUERY_FUNCTION))
+    {
+        value->functions = ctx->calloc_func(ctx->state, 1, sizeof(Functions));
+        CHECK_NEW_MEMORY(ctx, value->functions, sizeof(Functions), "Functions");
+
+        result = kmip_decode_query_functions(ctx, value->functions);
+        CHECK_RESULT(ctx, result);
+    }
+
+    return(KMIP_OK);
+}
+
+
+int
+kmip_decode_operations(KMIP *ctx, Operations *value)
+{
+    int result = 0;
+
+    value->operation_list = ctx->calloc_func(ctx->state, 1, sizeof(LinkedList));
+    CHECK_NEW_MEMORY(ctx, value->operation_list, sizeof(LinkedList), "LinkedList");
+
+    uint32 tag = kmip_peek_tag(ctx);
+    while(tag == KMIP_TAG_OPERATION)
+    {
+        LinkedListItem *item = ctx->calloc_func(ctx->state, 1, sizeof(LinkedListItem));
+        CHECK_NEW_MEMORY(ctx, item, sizeof(LinkedListItem), "LinkedListItem");
+        kmip_linked_list_enqueue(value->operation_list, item);
+
+        item->data = ctx->calloc_func(ctx->state, 1, sizeof(int32));
+        CHECK_NEW_MEMORY(ctx, item->data, sizeof(int32), "Operation");
+
+
+        result = kmip_decode_enum(ctx, KMIP_TAG_OPERATION, (int32 *)item->data);
+        CHECK_RESULT(ctx, result);
+
+        tag = kmip_peek_tag(ctx);
+    }
+
+    return(KMIP_OK);
+}
+
+int
+kmip_decode_object_types(KMIP *ctx, ObjectTypes *value)
+{
+    int result = 0;
+
+    value->object_list = ctx->calloc_func(ctx->state, 1, sizeof(LinkedList));
+    CHECK_NEW_MEMORY(ctx, value->object_list, sizeof(LinkedList), "LinkedList");
+
+    uint32 tag = kmip_peek_tag(ctx);
+    while(tag == KMIP_TAG_OBJECT_TYPE)
+    {
+        LinkedListItem *item = ctx->calloc_func(ctx->state, 1, sizeof(LinkedListItem));
+        CHECK_NEW_MEMORY(ctx, item, sizeof(LinkedListItem), "LinkedListItem");
+        kmip_linked_list_enqueue(value->object_list, item);
+
+        item->data = ctx->calloc_func(ctx->state, 1, sizeof(int32));
+        CHECK_NEW_MEMORY(ctx, item->data, sizeof(int32), "Object");
+
+        result = kmip_decode_enum(ctx, KMIP_TAG_OBJECT_TYPE, (int32 *)item->data);
+        CHECK_RESULT(ctx, result);
+
+        tag = kmip_peek_tag(ctx);
+    }
+
+    return(KMIP_OK);
+}
+
+int
+kmip_decode_alternative_endpoints(KMIP *ctx, AltEndpoints* value)
+{
+    int result = 0;
+
+    value->endpoint_list = ctx->calloc_func(ctx->state, 1, sizeof(LinkedList));
+    CHECK_NEW_MEMORY(ctx, value->endpoint_list, sizeof(LinkedList), "LinkedList");
+
+    uint32 tag = kmip_peek_tag(ctx);
+    while(tag == KMIP_TAG_ALTERNATE_FAILOVER_ENDPOINTS)
+    {
+        LinkedListItem *item = ctx->calloc_func(ctx->state, 1, sizeof(LinkedListItem));
+        CHECK_NEW_MEMORY(ctx, item, sizeof(LinkedListItem), "LinkedListItem");
+        kmip_linked_list_enqueue(value->endpoint_list, item);
+
+        item->data = ctx->calloc_func(ctx->state, 1, sizeof(TextString));
+        CHECK_NEW_MEMORY(ctx, item->data, sizeof(TextString), "Endpoint text string");
+
+        result = kmip_decode_text_string(ctx, KMIP_TAG_ALTERNATE_FAILOVER_ENDPOINTS, item->data);
+        CHECK_RESULT(ctx, result);
+
+        tag = kmip_peek_tag(ctx);
+    }
+
+    return(KMIP_OK);
+}
+
+int
+kmip_decode_server_information(KMIP *ctx, ServerInformation *value)
+{
+    CHECK_BUFFER_FULL(ctx, 8);
+
+    int result = 0;
+    int32 tag_type = 0;
+    uint32 length = 0;
+
+    kmip_decode_int32_be(ctx, &tag_type);
+    CHECK_TAG_TYPE(ctx, tag_type, KMIP_TAG_SERVER_INFORMATION, KMIP_TYPE_STRUCTURE);
+
+    kmip_decode_int32_be(ctx, &length);
+    CHECK_BUFFER_FULL(ctx, length);
+
+    if(kmip_is_tag_next(ctx, KMIP_TAG_SERVER_NAME))
+    {
+        value->server_name = ctx->calloc_func(ctx->state, 1, sizeof(TextString));
+        CHECK_NEW_MEMORY(ctx, value->server_name, sizeof(TextString), "ServerName text string");
+
+        result = kmip_decode_text_string(ctx, KMIP_TAG_SERVER_NAME, value->server_name);
+        CHECK_RESULT(ctx, result);
+    }
+
+    if(kmip_is_tag_next(ctx, KMIP_TAG_SERVER_SERIAL_NUMBER))
+    {
+        value->server_serial_number = ctx->calloc_func(ctx->state, 1, sizeof(TextString));
+        CHECK_NEW_MEMORY(ctx, value->server_serial_number, sizeof(TextString), "ServerSerialNumber text string");
+
+        result = kmip_decode_text_string(ctx, KMIP_TAG_SERVER_SERIAL_NUMBER, value->server_serial_number);
+        CHECK_RESULT(ctx, result);
+    }
+
+    if(kmip_is_tag_next(ctx, KMIP_TAG_SERVER_VERSION))
+    {
+        value->server_version = ctx->calloc_func(ctx->state, 1, sizeof(TextString));
+        CHECK_NEW_MEMORY(ctx, value->server_version, sizeof(TextString), "ServerVersion text string");
+
+        result = kmip_decode_text_string(ctx, KMIP_TAG_SERVER_VERSION, value->server_version);
+        CHECK_RESULT(ctx, result);
+    }
+
+    if(kmip_is_tag_next(ctx, KMIP_TAG_SERVER_LOAD))
+    {
+        value->server_load = ctx->calloc_func(ctx->state, 1, sizeof(TextString));
+        CHECK_NEW_MEMORY(ctx, value->server_load, sizeof(TextString), "ServerLoad text string");
+
+        result = kmip_decode_text_string(ctx, KMIP_TAG_SERVER_LOAD, value->server_load);
+        CHECK_RESULT(ctx, result);
+    }
+
+
+    if(kmip_is_tag_next(ctx, KMIP_TAG_PRODUCT_NAME))
+    {
+        value->product_name = ctx->calloc_func(ctx->state, 1, sizeof(TextString));
+        CHECK_NEW_MEMORY(ctx, value->product_name, sizeof(TextString), "ProductName text string");
+
+        result = kmip_decode_text_string(ctx, KMIP_TAG_PRODUCT_NAME, value->product_name);
+        CHECK_RESULT(ctx, result);
+    }
+
+    if(kmip_is_tag_next(ctx, KMIP_TAG_BUILD_LEVEL))
+    {
+        value->build_level = ctx->calloc_func(ctx->state, 1, sizeof(TextString));
+        CHECK_NEW_MEMORY(ctx, value->build_level, sizeof(TextString), "BuildLevel text string");
+
+        result = kmip_decode_text_string(ctx, KMIP_TAG_BUILD_LEVEL, value->build_level);
+        CHECK_RESULT(ctx, result);
+    }
+
+    if(kmip_is_tag_next(ctx, KMIP_TAG_BUILD_DATE))
+    {
+        value->build_date = ctx->calloc_func(ctx->state, 1, sizeof(TextString));
+        CHECK_NEW_MEMORY(ctx, value->build_date, sizeof(TextString), "BuildDate text string");
+
+        result = kmip_decode_text_string(ctx, KMIP_TAG_BUILD_DATE, value->build_date);
+        CHECK_RESULT(ctx, result);
+    }
+
+    if(kmip_is_tag_next(ctx, KMIP_TAG_CLUSTER_INFO))
+    {
+        value->cluster_info = ctx->calloc_func(ctx->state, 1, sizeof(TextString));
+        CHECK_NEW_MEMORY(ctx, value->cluster_info, sizeof(TextString), "ClusterInfo text string");
+
+        result = kmip_decode_text_string(ctx, KMIP_TAG_CLUSTER_INFO, value->cluster_info);
+        CHECK_RESULT(ctx, result);
+    }
+
+    if(kmip_is_tag_next(ctx, KMIP_TAG_ALTERNATE_FAILOVER_ENDPOINTS))
+    {
+        value->alternative_failover_endpoints= ctx->calloc_func(ctx->state, 1, sizeof(AltEndpoints));
+        CHECK_NEW_MEMORY(ctx, value->alternative_failover_endpoints, sizeof(AltEndpoints), "Alt Endpoints");
+        result = kmip_decode_alternative_endpoints(ctx, value->alternative_failover_endpoints);
+        CHECK_RESULT(ctx, result);
+    }
+
+    return(KMIP_OK);
+}
+
+int
+kmip_decode_query_response_payload(KMIP *ctx, QueryResponsePayload *value)
+{
+    int result = 0;
+
+    int32 tag_type = 0;
+    uint32 length = 0;
+
+    kmip_decode_int32_be(ctx, &tag_type);
+    CHECK_TAG_TYPE(ctx, tag_type, KMIP_TAG_RESPONSE_PAYLOAD, KMIP_TYPE_STRUCTURE);
+
+    kmip_decode_int32_be(ctx, &length);
+    CHECK_BUFFER_FULL(ctx, length);
+
+    if(kmip_is_tag_next(ctx, KMIP_TAG_OPERATION))
+    {
+        value->operations = ctx->calloc_func(ctx->state, 1, sizeof(Operations));
+        CHECK_NEW_MEMORY(ctx, value->operations, sizeof(Operations), "Operations");
+        result = kmip_decode_operations(ctx, value->operations);
+        CHECK_RESULT(ctx, result);
+    }
+
+    if(kmip_is_tag_next(ctx, KMIP_TAG_OBJECT_TYPE))
+    {
+        value->objects = ctx->calloc_func(ctx->state, 1, sizeof(ObjectTypes));
+        CHECK_NEW_MEMORY(ctx, value->objects, sizeof(ObjectTypes), "Object_Types");
+        result = kmip_decode_object_types(ctx, value->objects);
+        CHECK_RESULT(ctx, result);
+    }
+
+    if(kmip_is_tag_next(ctx, KMIP_TAG_VENDOR_IDENTIFICATION))
+    {
+        value->vendor_identification = ctx->calloc_func(ctx->state, 1, sizeof(TextString));
+        CHECK_NEW_MEMORY(ctx, value->vendor_identification, sizeof(TextString), "Vendor Identifier text string");
+        result = kmip_decode_text_string(ctx, KMIP_TAG_VENDOR_IDENTIFICATION, (TextString*)value->vendor_identification);
+        CHECK_RESULT(ctx, result);
+    }
+
+    if(kmip_is_tag_next(ctx, KMIP_TAG_SERVER_INFORMATION))
+    {
+        value->server_information = ctx->calloc_func(ctx->state, 1, sizeof(ServerInformation));
+        CHECK_NEW_MEMORY(ctx, value->server_information, sizeof(ServerInformation), "Server Information");
+        result = kmip_decode_server_information(ctx, value->server_information);
+        CHECK_RESULT(ctx, result);
+    }
+
+    return(KMIP_OK);
+}
+

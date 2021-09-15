@@ -8,8 +8,9 @@
 
 #include <stdio.h>
 #include <string.h>
-#include "kmip.h"
 
+#include "kmip.h"
+#include "kmip_io.h"
 
 
 #define TEST_PASSED(A, B)       \
@@ -11901,6 +11902,502 @@ test_decode_response_header_kmip_2_0(TestTracker *tracker)
     return(result);
 }
 
+int
+test_compare_query_functions(TestTracker *tracker)
+{
+    TRACK_TEST(tracker);
+
+    KMIP ctx = {0};
+    kmip_init(&ctx, NULL, 0, KMIP_1_0);
+
+    LinkedList list_1 = {0};
+    LinkedListItem item_1 = {0};
+    int32 funct_1 = KMIP_QUERY_OPERATIONS;
+    item_1.data = &funct_1;
+
+    LinkedListItem item_2 = {0};
+    int32 funct_2 = KMIP_QUERY_SERVER_INFORMATION;
+    item_2.data = &funct_2;
+
+    kmip_linked_list_enqueue(&list_1, &item_1);
+    kmip_linked_list_enqueue(&list_1, &item_2);
+
+    Functions expected = {0};
+    expected.function_list = &list_1;
+
+    LinkedList list_2 = {0};
+    LinkedListItem item_3 = {0};
+    int32 funct_3 = KMIP_QUERY_OPERATIONS;
+    item_3.data = &funct_3;
+
+    LinkedListItem item_4 = {0};
+    int32 funct_4 = KMIP_QUERY_SERVER_INFORMATION;
+    item_4.data = &funct_4;
+
+    kmip_linked_list_enqueue(&list_2, &item_3);
+    kmip_linked_list_enqueue(&list_2, &item_4);
+
+    Functions observed = {0};
+    observed.function_list = &list_2;
+
+    int comparison = kmip_compare_query_functions(&expected, &observed);
+    int result = report_decoding_test_result(tracker, &ctx, comparison, KMIP_OK, __func__);
+
+    kmip_destroy(&ctx);
+
+    return (result);
+}
+
+int
+test_encode_query_functions(TestTracker *tracker)
+{
+    TRACK_TEST(tracker);
+
+    /* This encoding matches the following set of values:
+    *  Query Functions
+          Query Operations
+          Query Objects
+    */
+    uint8 expected[32] = {
+        0x42, 0x00, 0x74, 0x05, 0x00, 0x00, 0x00, 0x04,
+        0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00,
+        0x42, 0x00, 0x74, 0x05, 0x00, 0x00, 0x00, 0x04,
+        0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00
+    };
+
+    uint8 observed[32] = {0};
+    KMIP ctx = {0};
+    kmip_init(&ctx, observed, ARRAY_LENGTH(observed), KMIP_1_0);
+
+    LinkedList list = {0};
+    LinkedListItem item_1 = {0};
+    int32 funct_1 = KMIP_QUERY_OPERATIONS;
+    item_1.data = &funct_1;
+
+    LinkedListItem item_2 = {0};
+    int32 funct_2 = KMIP_QUERY_OBJECTS;
+    item_2.data = &funct_2;
+
+    kmip_linked_list_enqueue(&list, &item_1);
+    kmip_linked_list_enqueue(&list, &item_2);
+
+    Functions qf = {0};
+    qf.function_list = &list;
+
+    int result = kmip_encode_query_functions(&ctx, &qf);
+    result = report_encoding_test_result(tracker, &ctx, expected, observed, result, __func__);
+
+    kmip_destroy(&ctx);
+
+    return(result);
+}
+
+int
+test_decode_query_functions(TestTracker *tracker)
+{
+    TRACK_TEST(tracker);
+
+    /* This encoding matches the following set of values:
+    *  Query Functions
+          Query Operations
+          Query Objects
+    */
+    uint8 encoding[32] = {
+        0x42, 0x00, 0x74, 0x05, 0x00, 0x00, 0x00, 0x04,
+        0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00,
+        0x42, 0x00, 0x74, 0x05, 0x00, 0x00, 0x00, 0x04,
+        0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00
+    };
+
+    KMIP ctx = {0};
+    kmip_init(&ctx, encoding, ARRAY_LENGTH(encoding), KMIP_1_0);
+
+    LinkedList list_1 = {0};
+    LinkedListItem item_1 = {0};
+    int32 funct_1 = KMIP_QUERY_OPERATIONS;
+    item_1.data = &funct_1;
+
+    LinkedListItem item_2 = {0};
+    int32 funct_2 = KMIP_QUERY_OBJECTS;
+    item_2.data = &funct_2;
+
+    kmip_linked_list_enqueue(&list_1, &item_1);
+    kmip_linked_list_enqueue(&list_1, &item_2);
+
+    Functions expected = {0};
+    expected.function_list = &list_1;
+
+    Functions observed = {0};
+
+    int result = kmip_decode_query_functions(&ctx, &observed);
+    int comparison = kmip_compare_query_functions(&expected, &observed);
+    if(!comparison)
+    {
+        kmip_print_query_functions(stderr, 1, &expected);
+        kmip_print_query_functions(stderr, 1, &observed);
+    }
+    result = report_decoding_test_result(tracker, &ctx, comparison, result, __func__);
+
+    kmip_free_query_functions(&ctx, &observed);
+    kmip_destroy(&ctx);
+
+    return(result);
+}
+
+int
+test_decode_operations(TestTracker *tracker)
+{
+    TRACK_TEST(tracker);
+
+    /* This encoding matches the following set of values:
+    *  Operations
+          OP_CREATE               = 0x01,
+          OP_CREATE_KEY_PAIR      = 0x02,
+    */
+    uint8 encoding[32] = {
+        0x42, 0x00, 0x5C, 0x05, 0x00, 0x00, 0x00, 0x04,
+        0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00,
+        0x42, 0x00, 0x5C, 0x05, 0x00, 0x00, 0x00, 0x04,
+        0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00
+    };
+
+    KMIP ctx = {0};
+    kmip_init(&ctx, encoding, ARRAY_LENGTH(encoding), KMIP_1_0);
+
+    LinkedList list_1  = {0};
+    LinkedListItem item_1 = {0};
+    int32 op_1 = KMIP_OP_CREATE;
+    item_1.data = &op_1;
+
+    LinkedListItem item_2 = {0};
+    int32 op_2 = KMIP_OP_CREATE_KEY_PAIR;
+    item_2.data = &op_2;
+
+    kmip_linked_list_enqueue(&list_1, &item_1);
+    kmip_linked_list_enqueue(&list_1, &item_2);
+
+    Operations expected = {0};
+    expected.operation_list = &list_1;
+
+    Operations observed = {0};
+    int result = kmip_decode_operations(&ctx, &observed);
+    int comparison = kmip_compare_operations(&expected, &observed);
+    if(!comparison)
+    {
+        kmip_print_operations(stderr, 1, &expected);
+        kmip_print_operations(stderr, 1, &observed);
+    }
+    result = report_decoding_test_result(tracker, &ctx, comparison, result, __func__);
+
+    kmip_free_operations(&ctx, &observed);
+    kmip_destroy(&ctx);
+
+    return(result);
+}
+
+int
+test_decode_object_types(TestTracker *tracker)
+{
+    TRACK_TEST(tracker);
+
+    /* This encoding matches the following set of values:
+    *  Object_types
+          KMIP_OBJTYPE_CERTIFICATE = 0x01,
+          KMIP_OBJTYPE_PUBLIC_KEY  = 0x03,
+    */
+    uint8 encoding[32] = {
+        0x42, 0x00, 0x57, 0x05, 0x00, 0x00, 0x00, 0x04,
+        0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00,
+        0x42, 0x00, 0x57, 0x05, 0x00, 0x00, 0x00, 0x04,
+        0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00
+    };
+
+    KMIP ctx = {0};
+    kmip_init(&ctx, encoding, ARRAY_LENGTH(encoding), KMIP_1_0);
+
+    LinkedList list_1  = {0};
+    LinkedListItem item_1 = {0};
+    int32 obj_1 = KMIP_OBJTYPE_CERTIFICATE;
+    item_1.data = &obj_1;
+
+    LinkedListItem item_2 = {0};
+    int32 obj_2 = KMIP_OBJTYPE_PUBLIC_KEY;
+    item_2.data = &obj_2;
+
+    kmip_linked_list_enqueue(&list_1, &item_1);
+    kmip_linked_list_enqueue(&list_1, &item_2);
+
+    ObjectTypes expected = {0};
+    expected.object_list = &list_1;
+
+    ObjectTypes observed = {0};
+    int result = kmip_decode_object_types(&ctx, &observed);
+    int comparison = kmip_compare_objects(&expected, &observed);
+    if(!comparison)
+    {
+        kmip_print_object_types(stderr, 1, &expected);
+        kmip_print_object_types(stderr, 1, &observed);
+    }
+    result = report_decoding_test_result(tracker, &ctx, comparison, result, __func__);
+
+    kmip_free_objects(&ctx, &observed);
+    kmip_destroy(&ctx);
+
+    return(result);
+}
+
+int
+test_decode_server_information(TestTracker *tracker)
+{
+    TRACK_TEST(tracker);
+
+
+    /* This encoding matches the following set of values:
+
+    Tag: Server information (0x420088), Type: Structure (0x01), Data:
+      Tag: Server Name (0x42012D) , Type: Text (0x07), Data: server 1
+      Tag: Server Serial Number (0x42012E), Type: Text (0x07), Data: serNum123456
+      Tag: Server Version (0x42012F), Type: Text (0x07), Data: 1.00
+      Tag: Alt endpoint (0x420135), Type: Text (0x07), Data: server2.example.com
+      Tag: Alt endpoint (0x420135), Type: Text (0x07), Data: server3.example.com
+    */
+
+    uint8 encoding[] = {
+        0x42, 0x00, 0x88, 0x01, 0x00, 0x00, 0x00, 0x30,
+        0x42, 0x01, 0x2D, 0x07, 0x00, 0x00, 0x00, 0x08,
+        0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x20, 0x31,
+        0x42, 0x01, 0x2E, 0x07, 0x00, 0x00, 0x00, 0x0C,
+        0x73, 0x65, 0x72, 0x4E, 0x75, 0x6D, 0x31, 0x32,
+        0x33, 0x34, 0x35, 0x36, 0x00, 0x00, 0x00, 0x00,
+        0x42, 0x01, 0x2F, 0x07, 0x00, 0x00, 0x00, 0x04,
+        0x31, 0x2E, 0x30, 0x30, 0x00, 0x00, 0x00, 0x00,
+        0x42, 0x01, 0x35, 0x07, 0x00, 0x00, 0x00, 0x13,
+        0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x32, 0x2E,
+        0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E,
+        0x63, 0x6F, 0x6D, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x42, 0x01, 0x35, 0x07, 0x00, 0x00, 0x00, 0x13,
+        0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x33, 0x2E,
+        0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E,
+        0x63, 0x6F, 0x6D, 0x00, 0x00, 0x00, 0x00, 0x00,
+
+    };
+
+    KMIP ctx = {0};
+    kmip_init(&ctx, encoding, ARRAY_LENGTH(encoding), KMIP_2_0);
+
+    TextString server_name = {0};
+    server_name.value = "server 1";
+    server_name.size = 8;
+
+    TextString server_serial_number = {0};
+    server_serial_number.value = "serNum123456";
+    server_serial_number.size = 12;
+
+    TextString server_version = {0};
+    server_version.value = "1.00";
+    server_version.size = 4;
+
+
+    TextString alt_endpoint_1 = {0};
+    alt_endpoint_1.value = "server2.example.com";
+    alt_endpoint_1.size = 19;
+
+    TextString alt_endpoint_2 = {0};
+    alt_endpoint_2.value = "server3.example.com";
+    alt_endpoint_2.size = 19;
+
+
+    AltEndpoints alt = {0};
+    LinkedList list_1 = {0};
+    LinkedListItem item_1, item_2 = {0};
+    item_1.data = &alt_endpoint_1;
+    item_2.data = &alt_endpoint_2;
+    kmip_linked_list_enqueue(&list_1, &item_1);
+    kmip_linked_list_enqueue(&list_1, &item_2);
+    alt.endpoint_list = &list_1;
+
+
+    ServerInformation expected = {0};
+    expected.server_name = &server_name;
+    expected.server_serial_number = &server_serial_number;
+    expected.server_version = &server_version;
+    expected.alternative_failover_endpoints = &alt;
+
+    ServerInformation observed = {0};
+    int result = kmip_decode_server_information(&ctx, &observed);
+    int comparison = kmip_compare_server_information(&expected, &observed);
+    if(!comparison)
+    {
+        kmip_print_server_information(stderr, 1, &expected);
+        kmip_print_server_information(stderr, 1, &observed);
+    }
+    result = report_decoding_test_result(tracker, &ctx, comparison, result, __func__);
+
+    kmip_free_server_information(&ctx, &observed);
+    kmip_destroy(&ctx);
+
+    return (result);
+}
+
+int
+test_encode_query_request_payload(TestTracker *tracker)
+{
+    TRACK_TEST(tracker);
+
+    /* This encoding matches the following set of values:
+    *  Request Payload
+    *      Object Type - Query
+    *      Query Functions
+               Query Operations)
+               Query Objects)
+               Query Server Information)
+
+    Tag: Request Payload (0x420079), Type: Structure (0x01), Data:
+      Tag: Query Function (0x420074), Type: Enumeration (0x05), Data: 0x00000001 (Query Operations)
+      Tag: Query Function (0x420074), Type: Enumeration (0x05), Data: 0x00000002 (Query Objects)
+      Tag: Query Function (0x420074), Type: Enumeration (0x05), Data: 0x00000003 (Query Server Information)
+    */
+
+    uint8 expected[56] = {
+        0x42, 0x00, 0x79, 0x01, 0x00, 0x00, 0x00, 0x30,
+        0x42, 0x00, 0x74, 0x05, 0x00, 0x00, 0x00, 0x04,
+        0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00,
+        0x42, 0x00, 0x74, 0x05, 0x00, 0x00, 0x00, 0x04,
+        0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00,
+        0x42, 0x00, 0x74, 0x05, 0x00, 0x00, 0x00, 0x04,
+        0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00
+    };
+
+    uint8 observed[56] = {0};
+    struct kmip ctx = {0};
+    kmip_init(&ctx, observed, ARRAY_LENGTH(observed), KMIP_1_0);
+
+    LinkedList list_1 = {0};
+
+    LinkedListItem item_1 = {0};
+    int32 funct_1 = KMIP_QUERY_OPERATIONS;
+    item_1.data = &funct_1;
+
+    LinkedListItem item_2 = {0};
+    int32 funct_2 = KMIP_QUERY_OBJECTS;
+    item_2.data = &funct_2;
+
+    LinkedListItem item_3 = {0};
+    int32 funct_3 = KMIP_QUERY_SERVER_INFORMATION;
+    item_3.data = &funct_3;
+
+    kmip_linked_list_enqueue(&list_1, &item_1);
+    kmip_linked_list_enqueue(&list_1, &item_2);
+    kmip_linked_list_enqueue(&list_1, &item_3);
+
+    Functions functions = {0};
+    functions.function_list = &list_1;
+
+    QueryRequestPayload qrp = {0};
+    qrp.functions = &functions;
+
+    int result = kmip_encode_query_request_payload(&ctx, &qrp);
+    result = report_encoding_test_result(
+        tracker,
+        &ctx,
+        expected,
+        observed,
+        result,
+        __func__);
+
+    return(result);
+}
+
+int
+test_decode_query_response_payload(TestTracker *tracker)
+{
+    TRACK_TEST(tracker);
+
+    uint8 encoding[176] = {
+        0x42, 0x00, 0x7C, 0x01, 0x00, 0x00, 0x00, 0x58,
+
+        0x42, 0x00, 0x5C, 0x05, 0x00, 0x00, 0x00, 0x04,
+        0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00,
+        0x42, 0x00, 0x5C, 0x05, 0x00, 0x00, 0x00, 0x04,
+        0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00,
+
+        0x42, 0x00, 0x57, 0x05, 0x00, 0x00, 0x00, 0x04,
+        0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00,
+        0x42, 0x00, 0x57, 0x05, 0x00, 0x00, 0x00, 0x04,
+        0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00,
+
+        0x42, 0x00, 0x9D, 0x07, 0x00, 0x00, 0x00, 0x0A,
+        0x56, 0x65, 0x6E, 0x64, 0x6F, 0x72, 0x20, 0x4F,
+        0x6E, 0x65, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    };
+
+    struct kmip ctx = {0};
+    kmip_init(&ctx, encoding, ARRAY_LENGTH(encoding), KMIP_1_0);
+
+    struct text_string vendor = {0};
+    vendor.value = "Vendor One";
+    vendor.size = 10;
+
+    // operations
+    LinkedList oper_1  = {0};
+    LinkedListItem item_1 = {0};
+    int32 op_1 = KMIP_OP_CREATE;
+    item_1.data = &op_1;
+
+    LinkedListItem item_2 = {0};
+    int32 op_2 = KMIP_OP_CREATE_KEY_PAIR;
+    item_2.data = &op_2;
+
+    kmip_linked_list_enqueue(&oper_1, &item_1);
+    kmip_linked_list_enqueue(&oper_1, &item_2);
+
+    Operations operations = {0};
+    operations.operation_list = &oper_1;
+
+
+    // objects
+    LinkedList objlist  = {0};
+    LinkedListItem obj_item_1 = {0};
+    int32 obj_1 = KMIP_OBJTYPE_CERTIFICATE;
+    obj_item_1.data = &obj_1;
+
+    LinkedListItem obj_item_2 = {0};
+    int32 obj_2 = KMIP_OBJTYPE_PUBLIC_KEY;
+    obj_item_2.data = &obj_2;
+
+    kmip_linked_list_enqueue(&objlist, &obj_item_1);
+    kmip_linked_list_enqueue(&objlist, &obj_item_2);
+
+    ObjectTypes objects = {0};
+    objects.object_list = &objlist;
+
+    struct query_response_payload expected = {0};
+    expected.operations = &operations;
+    expected.objects = &objects;
+    expected.vendor_identification = &vendor;
+
+    struct query_response_payload observed = {0};
+
+    int result = kmip_decode_query_response_payload(&ctx, &observed);
+    int comparison = kmip_compare_query_response_payload(&expected, &observed);
+    if (!comparison)
+    {
+        kmip_print_query_response_payload(stderr, 1, &observed);
+        kmip_print_query_response_payload(stderr, 1, &expected);
+    }
+    result = report_decoding_test_result(
+        tracker,
+        &ctx,
+        comparison,
+        result,
+        __func__);
+    kmip_free_query_response_payload(&ctx, &observed);
+    kmip_destroy(&ctx);
+
+
+    return (result);
+}
+
 /*
 The following tests are taken verbatim from the KMIP 1.1 Test Cases
 documentation, available here:
@@ -12529,6 +13026,11 @@ run_tests(void)
     test_decode_request_batch_item_get_payload(&tracker);
     test_decode_request_message_get(&tracker);
     test_decode_response_message_get(&tracker);
+    test_decode_query_functions(&tracker);
+    test_decode_operations(&tracker);
+    test_decode_object_types(&tracker);
+    test_compare_query_functions(&tracker);
+    test_decode_query_response_payload(&tracker);
     
     printf("\n");
     test_encode_integer(&tracker);
@@ -12590,6 +13092,8 @@ run_tests(void)
     test_encode_request_message_get(&tracker);
     test_encode_response_message_get(&tracker);
     test_encode_template_attribute(&tracker);
+    test_encode_query_functions(&tracker);
+    test_encode_query_request_payload(&tracker);
     
     printf("\nKMIP 1.1 Feature Tests\n");
     printf("----------------------\n");
@@ -12659,6 +13163,7 @@ run_tests(void)
     test_decode_create_request_payload_kmip_2_0(&tracker);
     test_decode_request_batch_item_get_payload_kmip_2_0(&tracker);
     test_decode_response_header_kmip_2_0(&tracker);
+    test_decode_server_information(&tracker);
 
     printf("\n");
     test_encode_protection_storage_masks(&tracker);

@@ -12868,21 +12868,6 @@ kmip_decode_locate_response_payload(KMIP *ctx, LocateResponsePayload *value)
         CHECK_RESULT(ctx, result);
     }
 
-    //if (length > 0)
-    //{
-    //    value->unique_identifier = ctx->calloc_func(ctx->state, 1, sizeof(TextString));
-    //    CHECK_NEW_MEMORY(ctx, value->unique_identifier, sizeof(TextString), "UniqueIdentifier text string");
-
-    //    result = kmip_decode_text_string(ctx, KMIP_TAG_UNIQUE_IDENTIFIER, value->unique_identifier);
-    //    CHECK_RESULT(ctx, result);
-    //    if (unique_id_count > 1)
-    //    {
-    //        TextString tmp;
-    //        result = kmip_decode_text_string(ctx, KMIP_TAG_UNIQUE_IDENTIFIER, &tmp);
-    //        fprintf(stdout,"Extra value '%s' size '%lu'\n",tmp.value,tmp.size);
-    //    }
-    //}
-
     return(KMIP_OK);
 }
 

@@ -4,17 +4,8 @@
 .POSIX:
 .SUFFIXES:
 
-SRC_DIR = src
-INC_DIR = include
-BIN_DIR = bin
-OBJ_DIR = obj
-LIB_DIR = lib
-TEST_DIR = tests
-DEMO_DIR = demos
-DEST_DIR =
-DOCS_DIR = docs
-PREFIX = /usr/local
-KMIP = kmip
+SRCDIR = .
+BINDIR = $(SRCDIR)/bin
 
 MAJOR    = 0
 MINOR    = 2
@@ -48,48 +39,39 @@ LOFILES = kmip.lo kmip_memset.lo kmip_bio.lo
 all: demos tests $(LIBS)
 
 test: tests
-	$(BIN_DIR)/tests
+	$(SRCDIR)/tests
 
-## Dynamic directory creation rules
-$(BIN_DIR):
-	mkdir -p $@
-$(OBJ_DIR):
-	mkdir -p $@
-$(LIB_DIR):
-	mkdir -p $@
-
-## Install targets
 install: all
-	mkdir -p $(DEST_DIR)$(PREFIX)/bin/$(KMIP)
-	mkdir -p $(DEST_DIR)$(PREFIX)/include/$(KMIP)
-	mkdir -p $(DEST_DIR)$(PREFIX)/lib
-	mkdir -p $(DEST_DIR)$(PREFIX)/src/$(KMIP)
-	mkdir -p $(DEST_DIR)$(PREFIX)/share/doc/$(KMIP)/src
-	cp $(BIN_DIR)/demo_create $(DEST_DIR)$(PREFIX)/bin/$(KMIP)
-	cp $(BIN_DIR)/demo_get $(DEST_DIR)$(PREFIX)/bin/$(KMIP)
-	cp $(BIN_DIR)/demo_destroy $(DEST_DIR)$(PREFIX)/bin/$(KMIP)
-	cp $(BIN_DIR)/demo_query $(DEST_DIR)$(PREFIX)/bin/$(KMIP)
-	cp -r $(DOCS_DIR)/source/. $(DEST_DIR)$(PREFIX)/share/doc/$(KMIP)/src
-	cp $(SRC_DIR)/*.c $(DEST_DIR)$(PREFIX)/src/$(KMIP)
-	cp $(INC_DIR)/*.h $(DEST_DIR)$(PREFIX)/include/$(KMIP)
-	cp $(LIB_DIR)/$(LIB_NAME) $(DEST_DIR)$(PREFIX)/lib
-	cp $(LIB_DIR)/$(ARC_NAME) $(DEST_DIR)$(PREFIX)/lib
-	cd $(DEST_DIR)$(PREFIX)/lib && ln -s $(LIB_NAME) $(LINK_NAME) && cd -
+	mkdir -p $(DESTDIR)$(PREFIX)/bin/$(KMIP)
+	mkdir -p $(DESTDIR)$(PREFIX)/include/$(KMIP)
+	mkdir -p $(DESTDIR)$(PREFIX)/lib
+	mkdir -p $(DESTDIR)$(PREFIX)/src/$(KMIP)
+	mkdir -p $(DESTDIR)$(PREFIX)/share/doc/$(KMIP)/src
+	cp demo_create $(DESTDIR)$(PREFIX)/bin/$(KMIP)
+	cp demo_get $(DESTDIR)$(PREFIX)/bin/$(KMIP)
+	cp demo_destroy $(DESTDIR)$(PREFIX)/bin/$(KMIP)
+	cp tests $(DESTDIR)$(PREFIX)/bin/$(KMIP)
+	cp -r $(SRCDIR)/docs/source/. $(DESTDIR)$(PREFIX)/share/doc/$(KMIP)/src
+	cp $(SRCDIR)/*.c $(DESTDIR)$(PREFIX)/src/$(KMIP)
+	cp $(SRCDIR)/*.h $(DESTDIR)$(PREFIX)/include/$(KMIP)
+	cp $(SRCDIR)/$(LIBNAME) $(DESTDIR)$(PREFIX)/lib
+	cp $(SRCDIR)/$(ARCNAME) $(DESTDIR)$(PREFIX)/lib
+	cd $(DESTDIR)$(PREFIX)/lib && ln -s $(LIBNAME) $(LINKNAME) && cd -
 
 install_html_docs: html_docs
-	mkdir -p $(DEST_DIR)$(PREFIX)/share/doc/$(KMIP)/html
-	cp -r $(DOCS_DIR)/build/html/. $(DEST_DIR)$(PREFIX)/share/doc/$(KMIP)/html
+	mkdir -p $(DESTDIR)$(PREFIX)/share/doc/$(KMIP)/html
+	cp -r $(SRCDIR)/docs/build/html/. $(DESTDIR)$(PREFIX)/share/doc/$(KMIP)/html
 
 uninstall:
-	rm -rf $(DEST_DIR)$(PREFIX)/bin/$(KMIP)
-	rm -rf $(DEST_DIR)$(PREFIX)/include/$(KMIP)
-	rm -rf $(DEST_DIR)$(PREFIX)/src/$(KMIP)
-	rm -rf $(DEST_DIR)$(PREFIX)/share/doc/$(KMIP)
-	rm -r $(DEST_DIR)$(PREFIX)/lib/$(LINK_NAME)*
-	rm -r $(DEST_DIR)$(PREFIX)/lib/$(ARC_NAME)
+	rm -rf $(DESTDIR)$(PREFIX)/bin/$(KMIP)
+	rm -rf $(DESTDIR)$(PREFIX)/include/$(KMIP)
+	rm -rf $(DESTDIR)$(PREFIX)/src/$(KMIP)
+	rm -rf $(DESTDIR)$(PREFIX)/share/doc/$(KMIP)
+	rm -r $(DESTDIR)$(PREFIX)/lib/$(LINKNAME)*
+	rm -r $(DESTDIR)$(PREFIX)/lib/$(ARCNAME)
 
 uninstall_html_docs:
-	rm -rf $(DEST_DIR)$(PREFIX)/share/doc/$(KMIP)/html
+	rm -rf $(DESTDIR)$(PREFIX)/share/doc/$(KMIP)/html
 
 docs: html_docs
 html_docs:
@@ -122,9 +104,8 @@ kmip_memset.lo: kmip_memset.c kmip_memset.h
 kmip_bio.o: kmip_bio.c kmip_bio.h
 kmip_bio.lo: kmip_bio.c kmip_bio.h
 
-## Clean up rules
 clean:
-	rm -rf $(BIN_DIR) $(OBJ_DIR) $(LIB_DIR)
+	rm -f *.o *.lo
 clean_html_docs:
 	cd docs && make clean && cd ..
 cleanest:

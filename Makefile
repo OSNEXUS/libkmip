@@ -24,8 +24,8 @@ LOFLAGS = -fPIC
 SOFLAGS = -shared -Wl,-soname,$(SONAME)
 LDFLAGS = -Wl,-rpath=/sandbox/quantastor/external/openssl/linux/gcc48/openssl-1.1.1k/lib \
 		-L/sandbox/quantastor/external/openssl/linux/gcc48/openssl-1.1.1k/lib \
-		-Wl,-rpath=/opt/osnexus/common/lib \
-		-L/opt/osnexus/common/lib
+		-Wl,-rpath=/opt/osnexus/common/kmip/lib \
+		-L/opt/osnexus/common/kmip/lib
 LDLIBS  = -lssl -lcrypto
 INCFLAGS = -I/sandbox/quantastor/external/openssl/linux/gcc48/openssl-1.1.1k/include
 AR      = ar csrv

@@ -1870,7 +1870,7 @@ int kmip_bio_locate_key_with_context(KMIP *ctx, BIO *bio,
     LocateResponsePayload *pld = (LocateResponsePayload *)resp_item.response_payload;
     if (pld->unique_identifiers[0] != NULL)
     {
-        size_t charCount = sizeof(pld->unique_identifiers[0]->value) / 8;
+        size_t charCount = strlen(pld->unique_identifiers[0]->value);
         *kmip_id = ctx->calloc_func(ctx->state,charCount,sizeof(char));
         kmip_memcpy(ctx->state,*kmip_id,pld->unique_identifiers[0]->value,charCount);
     }
